@@ -46,7 +46,7 @@ void Widget::on_pushButton_clicked()
     {
         MinecraftPath.chop(1);
     }
-    Create(MinecraftPath,ui->comboBox->currentText(),ui->lineEdit->text(),"Script.bat","Log.txt");
+    Create(MinecraftPath,ui->comboBox->currentText(),ui->lineEdit->text(),"offline","Script.bat");
 #ifdef QT_DEBUG
     return;
 #endif

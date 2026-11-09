@@ -12,7 +12,7 @@
 
 #include "FileFunctions.h"
 
-extern QPair<qint64,qint64> GetMemoryQt(QString LogFileName);
+extern QPair<qint64,qint64> GetMemoryQt();
 
 
 

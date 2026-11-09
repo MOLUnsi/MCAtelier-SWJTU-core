@@ -198,20 +198,19 @@ QString DefaultMinecraftPath()
  * @brief 把指定压缩包文件解压到目标目录中
  * @param zipPath   压缩包文件位置
  * @param outDir    目标目录位置
- * @param LogFileName 日志文件
  * @return true     解压成功
  * @return false    解压失败
  * @p 使用miniz 自带的 zip 解压函数（高层 API）
  */
-bool ExtractZip(QString ZipPath,QString OutDir,QString LogFileName)
+bool ExtractZip(QString ZipPath,QString OutDir)
 {
     QFile src(ZipPath);
     if (!src.exists()) {
-        OutputTextIntoFile("jar不存在:\t"+ZipPath+"\n",LogFileName);
+        Log()<<"jar不存在:\t"<<ZipPath<<"\n";
         return false;
     }
     if (!QDir().mkpath(OutDir)) {
-        qWarning() << "无法创建目录:" << OutDir;
+        Log()<<"无法创建目录:"<<OutDir;
         return false;
     }
 
@@ -222,18 +221,18 @@ bool ExtractZip(QString ZipPath,QString OutDir,QString LogFileName)
 
     proc.start("tar", args);
     if (!proc.waitForFinished(30000)) {           // 最多等 30 秒
-        OutputTextIntoFile("解压超时:\t"+ZipPath+"\n",LogFileName);
+        Log()<<"解压超时:\t"<<ZipPath<<"\n";
         return false;
     }
 
     if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        OutputTextIntoFile("tar解压失败:\t"+proc.readAllStandardError(),LogFileName);
+        Log()<<"tar解压失败:\t"<<proc.readAllStandardError();
         return false;
     }
     return true;
 }
 
-bool CreatePathIfNotExist(QString path,QString LogFileName)
+bool CreatePathIfNotExist(QString path)
 {
     if (path.isEmpty())
         return false;
@@ -242,7 +241,7 @@ bool CreatePathIfNotExist(QString path,QString LogFileName)
 
     // 已存在但不是目录：说明被文件占了，直接报错，不要强行创建
     if (info.exists() && !info.isDir()) {
-        OutputTextIntoFile("路径已存在但不是目录:\t"+path+"\n",LogFileName);
+        Log()<<"路径已存在但不是目录:\t"+path+"\n";
         return false;
     }
 
@@ -252,7 +251,7 @@ bool CreatePathIfNotExist(QString path,QString LogFileName)
 
     // mkpath 会逐级创建父目录，比 mkdir 好用
     if (!QDir().mkpath(path)) {
-        OutputTextIntoFile("创建目录失败:\t"+path,LogFileName);
+        Log()<<"创建目录失败:\t"+path;
         return false;
     }
     return true;
@@ -320,7 +319,7 @@ bool FileExist(const QString &FilePath)
     return file.exists();
 }
 /*
-bool DownloadFileFormUrl(QString Url,QString SavePath)
+bool DownloadFileFromUrl(QString Url,QString SavePath)
 {
     QString cmd="start curl "+Url+" -o "+SavePath;
     qDebug()<<"\t"<<cmd;
@@ -334,7 +333,7 @@ bool DownloadFileFormUrl(QString Url,QString SavePath)
     return true;
 }
 */
-bool DownloadFileFormUrl(QString Url,QString SavePath)
+bool DownloadFileFromUrl(QString Url,QString SavePath)
 {
     QProcess proc;
     proc.start("curl", {"-sS", "-L", "--fail", Url, "-o", SavePath});

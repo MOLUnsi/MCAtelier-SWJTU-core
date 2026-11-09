@@ -10,6 +10,8 @@
 #include <QProcess>
 #include <QCryptographicHash>
 
+#include "log.h"
+
 extern bool IsAllAscii(
     const QString &s);
 
@@ -45,12 +47,10 @@ extern QString DefaultMinecraftPath();
 
 extern bool ExtractZip(
     QString ZipPath,
-    QString OutDir,
-    QString LogFileName);
+    QString OutDir);
 
 extern bool CreatePathIfNotExist(
-    QString path,
-    QString LogFileName);
+    QString path);
 
 extern bool SearchForJava();
 
@@ -64,7 +64,7 @@ extern bool VerifyFileSha1(
 extern bool FileExist(
     const QString &FilePath);
 
-extern bool DownloadFileFormUrl(
+extern bool DownloadFileFromUrl(
     QString Url,
     QString SavePath);
 #endif // FILEFUNCTIONS_H

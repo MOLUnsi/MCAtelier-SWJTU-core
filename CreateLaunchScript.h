@@ -33,8 +33,7 @@ extern QString qm(QString str);
 
 extern QString SetMemory(
     QString MinecraftPath,
-    QString GameName,
-    QString LogFileName);
+    QString GameName);
 
 extern QString JVMArgs(
     QJsonObject RootObject,
@@ -48,14 +47,13 @@ extern QString ClassPathArgs(
 
 extern QString GameArgs(
     QJsonObject RootObject,
-    const QMap<QString,QString> &map,
-    QString LogFileName);
+    const QMap<QString,QString> &map);
 
 extern bool Create(
     QString MinecraftPath,
     QString GameName,
     QString UserName,
-    QString OutputFileName,
-    QString LogFileName);
+    QString UserType,
+    QString OutputFileName);
 
 #endif // CREATELAUNCHSCRIPT_H
