@@ -18,6 +18,7 @@ qt_add_executable(MCAtelier-SWJTU-core
     SystemFunctions.h
     SystemFunctions.cpp
     log.h log.cpp
+    UI-FILES.LICENSE
 
 
 )
