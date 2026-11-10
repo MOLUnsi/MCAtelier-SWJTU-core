@@ -1,21 +1,3 @@
-/*
- * MCAtelier-SWJTU-core - 西南交通大学Minecraft启动器的启动核心
- * Copyright (C) 2026 陌栀子（MOLUnsi）
- * GitHub：https://github.com/MOLUnsi/
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
 #include "FileFunctions.h"
 
 bool IsAllAscii(const QString &s)
@@ -351,82 +333,23 @@ bool DownloadFileFromUrl(QString Url,QString SavePath)
     return true;
 }
 */
-bool DownloadFileFromUrl(const QString &Url, const QString &Path)
+bool DownloadFileFromUrl(QString Url,QString SavePath)
 {
-    QFileInfo fileInfo(Path);
-    QDir dir = fileInfo.absoluteDir();
-    QStringList arguments;
-    arguments << "-L" << "--fail" << "-o" << Path << Url;
     QProcess proc;
-/*
-#ifdef Q_OS_WIN
-    proc.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        args->flags |= CREATE_NEW_CONSOLE;          // 创建新控制台窗口
-        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES; // 不使用父进程的句柄
-    });
-#endif
-*/
-    proc.start("curl.exe", arguments);
-    if(!proc.waitForStarted(-1))
-    {
-        Log()<<"curl启动失败：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl启动失败：\t"<<proc.errorString();
+    proc.start("curl", {"-sS", "-L", "--fail", Url, "-o", SavePath});
+
+    if (!proc.waitForStarted(10000))
         return false;
-    }
-    Log()<<"正在从"<<Url<<"下载文件到"<<Path<<"\n";
-    qDebug()<<"正在从"<<Url<<"下载文件到"<<Path;
-    if(!proc.waitForFinished(-1))
-    {
-        Log()<<"curl未正常结束：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl未正常结束：\t"<<proc.errorString();
+
+    if (!proc.waitForFinished(30 * 60 * 1000)) {   // 大文件给足时间
         proc.kill();
         proc.waitForFinished();
         return false;
     }
-    if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
-    {
-        qDebug()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<proc.readAllStandardError();
-        Log()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<QString::fromUtf8(proc.readAllStandardError())<<"\n";
-        return false;
-    }
-    return true;
-}
-bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList)
-{
-    QStringList arguments;
-    arguments <<"-Z"<< "-L" << "--fail";
-    for(int i=0;i<PathList.size();i++)
-    {
-        arguments<<"-o"<<PathList.at(i)<<UrlList.at(i);
-    }
-    QProcess proc;
-#ifdef Q_OS_WIN
-    proc.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        args->flags |= CREATE_NEW_CONSOLE;          // 创建新控制台窗口
-        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES; // 不使用父进程的句柄
-    });
-#endif
-    proc.start("curl.exe", arguments);
-    if(!proc.waitForStarted(-1))
-    {
-        Log()<<"curl启动失败：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl启动失败：\t"<<proc.errorString();
-        return false;
-    }
-//    Log()<<"正在从"<<Url<<"下载文件到"<<Path<<"\n";
-//    qDebug()<<"正在从"<<Url<<"下载文件到"<<Path;
-    if(!proc.waitForFinished(-1))
-    {
-        Log()<<"curl未正常结束：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl未正常结束：\t"<<proc.errorString();
-        proc.kill();
-        proc.waitForFinished();
-        return false;
-    }
-    if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
-    {
-        qDebug()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<proc.readAllStandardError();
-        Log()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<QString::fromUtf8(proc.readAllStandardError())<<"\n";
+
+    if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        qWarning() << "curl failed:" << proc.errorString()
+        << proc.readAllStandardError();
         return false;
     }
     return true;

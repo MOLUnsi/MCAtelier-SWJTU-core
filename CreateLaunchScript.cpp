@@ -1,21 +1,3 @@
-/*
- * MCAtelier-SWJTU-core - 西南交通大学Minecraft启动器的启动核心
- * Copyright (C) 2026 陌栀子（MOLUnsi）
- * GitHub：https://github.com/MOLUnsi/
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
 #include"CreateLaunchScript.h"
 #ifdef QT_DEBUG
 #define IF_ENDL 1
@@ -297,7 +279,6 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
     {
         CreatePathIfNotExist(map["natives_directory"]);
     }
-    QStringList UrlsToDld,PathsToDld;
     for(const QJsonValue &FIleValue:LibrariesArray)
     {
         QJsonObject FileObject=FIleValue.toObject();
@@ -368,27 +349,22 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
             {
                 QString WholeFinalFileName=MinecraftPath+QStringLiteral("/libraries/")+it;//带绝对路径的文件
                 //开始检验sha1，看文件是否损坏
-//                Log()<<"正在检查文件：\nname:\t"+WholeFinalFileName+"\n预期sha1:\t"+sha1s.value(it)+"\n实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
+/*
+                Log()<<"正在检查文件：\nname:\t"+WholeFinalFileName+"\n预期sha1:\t"+sha1s.value(it)+"\n实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
                 if(!FileExist(WholeFinalFileName) || !sha1s.contains(it) || !VerifyFileSha1(WholeFinalFileName,sha1s.value(it)))
                 {
-                    Log()<<"需要下载文件："<<WholeFinalFileName<<"\t预期sha1:\t"+sha1s.value(it)+"\t实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
-/*                    QProcess dld;
+                    Log()<<"正在下载文件：\t"<<WholeFinalFileName<<"\n";
+                    QProcess dld;
                     qDebug()<<urls.value(it)<<QStringLiteral("\t -o \t")<<WholeFinalFileName;
                     dld.startDetached(QStringLiteral("curl"),{urls.value(it),QStringLiteral("-o"),WholeFinalFileName});
-*/
- //                   CreatePathIfNotExist(QFileInfo(WholeFinalFileName).path());
-                    std::srand(time(0));
-                    UrlsToDld.append(urls.value(it));
-                    PathsToDld.append(WholeFinalFileName);
-//                    DownloadFileFromUrl(urls.value(it),"C:/Users/31093/Downloads/"+QString::number(std::rand())+".jar");
                 }
+*/
                 //TODO:损坏文件自动下载功能
                 Cp.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+WholeFinalFileName);
-//                qDebug()<<MinecraftPath+QStringLiteral("/libraries/")+it;
+                qDebug()<<MinecraftPath+QStringLiteral("/libraries/")+it;
             }
         }
     }
-    DownloadFileFromUrl(UrlsToDld,PathsToDld);
 #ifndef QT_DEBUG
     for(const QString &FileName:Cp)
     {
@@ -603,6 +579,7 @@ QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
             {
                 ResolvePlaceholders(arg,map);
             }
+//            arg=qm(arg);
             Args.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+arg);
         }
     }
