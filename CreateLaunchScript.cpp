@@ -52,7 +52,20 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
             QString OSName=OSObject["name"].toString();
             if(OSName=="windows")
             {
-                win=allowance;
+                bool VersionRangeObeyed=true;
+                if(OSObject.contains("versionRange"))
+                {
+                    QJsonObject OSVersionRange=OSObject.value("versionRange").toObject();
+                    if(OSVersionRange.contains("min"))
+                    {
+                        VersionRangeObeyed=GetOSVersion()>=OSVersionRange.value("min").toString();
+                    }
+                    if(OSVersionRange.contains("max"))
+                    {
+                        VersionRangeObeyed=GetOSVersion()<OSVersionRange.value("max").toString();
+                    }
+                }
+                win=allowance&&VersionRangeObeyed;
             }
             if(OSName=="osx")
             {
@@ -77,17 +90,6 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
 #ifdef Q_OS_MACOS
     return osx;
 #endif
-}
-
-bool IfRuleObeyed(const QJsonValue &ArgValue,const QMap<QString,QString> &map)
-{
-    if(ArgValue.isString())
-    {
-        return true;
-    }
-    return false;
-    QJsonObject ArgObject=ArgValue.toObject();
-
 }
 
 /**
@@ -132,22 +134,16 @@ QString qm(QString str)
 }
 /**
  * @brief 设定分配给Java的内存大小，以生成-Xmx参数
+ * @param Xm_ 0:Xmx 1:Xms 默认是0:Xmx
+ * @param DefaultXmx    默认-Xmx参数。如果不填，则使用算法计算值
  * @return -Xmx参数
- *
- * 算法描述：
- * 我可以先算术平均几次启动前瞬间的已用内存数（注意是启动前），
- * 作为已用内存经验统计基准值，
- * 与此时实际可访问的物理内存大小作比得到系统正常运行时的内存占用率。
- * 在每次启动时，
- * 如果可用内存不多了，
- * 那就定死用一个设定好的内存上限大小，
- * 保证不会占用太多；
- * 如果可用内存比较宽裕，
- * 那就一直给java送内存直到正常占用率就好了，
- * 大不了再加一个设定好的内存上限大小
  */
-QString SetMemory(QString MinecraftPath,QString GameName)
+QString SetMemory(bool Xm_=0,QString DefaultXm_="")
 {
+    if(DefaultXm_.size())
+    {
+        return DefaultXm_;
+    }
     QPair<qint64,qint64> MemInfo=GetMemory();//{总内存,可用内存}
     qint64 TotalMemory=MemInfo.first;
     qint64 AvailableMemory=MemInfo.second;
@@ -156,7 +152,7 @@ QString SetMemory(QString MinecraftPath,QString GameName)
     mem=qMin(qMin(TotalMemory/2,TotalMemory-4*GB),AvailableMemory-qMax(2*GB,TotalMemory*3/20));
     mem=qMax(mem,2*GB);//下界2GB
     mem=qMin(mem,10*GB);//上界10GB
-    return "-Xmx"+QString::number(mem)+"m";
+    return "-Xm"+(Xm_?QStringLiteral("s"):QStringLiteral("x"))+QString::number(mem)+"m";
 }
 
 /**
@@ -324,23 +320,14 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
             {
                 QString WholeFinalFileName=MinecraftPath+QStringLiteral("/libraries/")+it;//带绝对路径的文件
                 //开始检验sha1，看文件是否损坏
-//                Log()<<"正在检查文件：\nname:\t"+WholeFinalFileName+"\n预期sha1:\t"+sha1s.value(it)+"\n实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
                 if(!FileExist(WholeFinalFileName) || !sha1s.contains(it) || !VerifyFileSha1(WholeFinalFileName,sha1s.value(it)))
                 {
                     Log()<<"需要下载文件："<<WholeFinalFileName<<"\t预期sha1:\t"+sha1s.value(it)+"\t实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
-/*                    QProcess dld;
-                    qDebug()<<urls.value(it)<<QStringLiteral("\t -o \t")<<WholeFinalFileName;
-                    dld.startDetached(QStringLiteral("curl"),{urls.value(it),QStringLiteral("-o"),WholeFinalFileName});
-*/
- //                   CreatePathIfNotExist(QFileInfo(WholeFinalFileName).path());
                     std::srand(time(0));
                     UrlsToDld.append(urls.value(it));
                     PathsToDld.append(WholeFinalFileName);
-//                    DownloadFileFromUrl(urls.value(it),"C:/Users/31093/Downloads/"+QString::number(std::rand())+".jar");
                 }
-                //TODO:损坏文件自动下载功能
                 Cp.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+WholeFinalFileName);
-//                qDebug()<<MinecraftPath+QStringLiteral("/libraries/")+it;
             }
         }
     }
@@ -351,12 +338,12 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
         if(!NativesFolderNormal && FileName.contains("natives-windows.jar"))
         {
             Log()<<"需要被解压到natives文件夹的.jar文件为:\t"<<FileName<<"\n";
-//            ExtractZip(FileName,map.value("natives_directory"));
+            ExtractZip(FileName,map.value("natives_directory"));
         }
     }
 #endif
     Cp.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+MinecraftPath+"/versions/"+GameName+"/"+GameName+".jar");
-    return Cp.join(map.value("classpath_separator"));
+    return Cp.join(map.value("classpath_separator")+(IF_ENDL?"\n":""));
 }
 
 /**
@@ -370,23 +357,44 @@ QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
     QStringList Args;
     if(RootObject.contains("arguments"))
     {
-        QJsonArray game=RootObject.value("arguments").toObject().value("default-user-jvm").toArray();
-        for(const QJsonValue &it:game)
+        for(const QJsonValue &it:RootObject.value("arguments").toObject().value("default-user-jvm").toArray())
         {
             QString arg;
-            if(!IfRuleObeyed(it,map))
+            if(!IfRulesObeyed(it.toObject()))
             {
                 continue;
             }
-            arg=it.toString();
-            while(arg.contains("$"))
+            if(it.toObject().value("value").type()==QJsonValue::String)
+            {
+                arg=it.toObject().value("value").toString();
+            }
+            if(it.toObject().value("value").type()==QJsonValue::Array)
+            {
+                //现能观测到的所有arguments.default-user-jvm.value都是数组形式
+                QStringList ArgList;
+                for(const QJsonValue &u:it.toObject().value("value").toArray())
+                {
+                    if(u.toString().startsWith("-Xmx"))
+                    {
+                        ArgList.append(SetMemory());//算法确定的-Xmx
+                        continue;
+                    }
+                    if(u.toString().startsWith("-Xms"))
+                    {
+                        continue;
+                    }
+                    ArgList.append(u.toString());
+                }
+                arg=ArgList.join(IF_ENDL?"\n":" ");
+            }
+            while(arg.contains("$"))//处理占位符。不过目前还没有发现arguments.default-user-jvm存在占位符
             {
                 ResolvePlaceholders(arg,map);
             }
             Args.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+arg);
         }
     }
-    return Args.join(" ");
+    return Args.join(IF_ENDL?"\n":" ");
 }
 
 /**
@@ -404,7 +412,7 @@ QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
         for(const QJsonValue &it:game)
         {
             QString arg;
-            if(!IfRuleObeyed(it,map))
+            if(it.type()==QJsonValue::Object)//暂且跳过所有Object类型的值,qwq
             {
                 continue;
             }
@@ -425,7 +433,7 @@ QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
         }
         Args.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+arg);
     }
-    return Args.join(" ");
+    return Args.join(IF_ENDL?"\n":" ");
 }
 
 /**
@@ -607,6 +615,9 @@ bool Create(
     map["auth_xuid"]="nop";
     map["user_type"]=UserType;
     map["version_type"]=LauncherName;
+
+    OutputTextIntoFile(DUJArgs(GameJsonRootObject,map),OutputFileName);
+    endl();
 
     OutputTextIntoFile(GameJsonRootObject.value("mainClass").toString(),OutputFileName);
     endl();

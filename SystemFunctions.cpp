@@ -41,3 +41,34 @@ QPair<qint64,qint64> GetMemory()
 #endif
     return {TotalMem,UsableMem};
 }
+
+/**
+ * @brief 获取当前操作系统的版本
+ * @return 当前操作系统的版本
+ */
+QString GetOSVersion()
+{
+    QString Version;
+
+#ifdef Q_OS_WIN
+    QStringList args;
+    args<<"/c"<<"ver";
+    Version=ProgramCallback("cmd",args,-1).first;
+    static const QRegularExpression re(R"(Version ([\d.]+))");
+    auto m=re.match(Version);
+    if(m.hasMatch())
+    {
+        Version=m.captured(1);
+    }
+#endif
+
+#ifdef Q_OS_LINUX
+
+#endif
+
+#ifdef Q_OS_MACOS
+
+#endif
+
+    return Version;
+}

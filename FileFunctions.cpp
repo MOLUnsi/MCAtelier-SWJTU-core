@@ -415,3 +415,21 @@ bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList
     }
     return true;
 }
+
+/**
+ * @brief 调用指定程序并给出回调内容，返回形式：{回调输出，错误反馈}
+ * @param cmd   调用的程序名称
+ * @param args  传给程序的参数
+ * @param WaitFor   等待时长（直到结束）（默认值是无限长等待）（单位：毫秒）
+ * @return 回调内容，形式：{回调输出，错误反馈}
+ */
+QPair<QString,QString> ProgramCallback(const QString &program,const QStringList &args,qint64 WaitFor=-1)
+{
+    QProcess proc;
+    proc.start(program,args);
+    proc.waitForFinished(WaitFor);
+    QString output=proc.readAllStandardOutput();
+    QString error =proc.readAllStandardError();
+    return QPair<QString,QString>(output,error);
+
+}

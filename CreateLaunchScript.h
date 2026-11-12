@@ -39,10 +39,6 @@
 
 extern bool IfRulesObeyed(const QJsonObject &FileObject);
 
-extern bool IfRuleObeyed(
-    const QJsonValue &ArgValue,
-    const QMap<QString,QString> &map);
-
 extern void ResolvePlaceholders(
     QString& text,
     const QMap<QString, QString> &map);
@@ -50,8 +46,9 @@ extern void ResolvePlaceholders(
 extern QString qm(QString str);
 
 extern QString SetMemory(
-    QString MinecraftPath,
-    QString GameName);
+    bool Xm_,
+    QString DefauleXm_
+    );
 
 extern QString JVMArgs(
     QJsonObject RootObject,

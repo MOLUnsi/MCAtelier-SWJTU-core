@@ -21,6 +21,7 @@
 
 #include <QProcess>
 #include <QDebug>
+#include <QRegularExpression>
 
 #ifdef Q_OS_WIN
 
@@ -32,6 +33,6 @@
 
 extern QPair<qint64,qint64> GetMemory();
 
-
+extern QString GetOSVersion();
 
 #endif // SYSTEMFUNCTIONS_H

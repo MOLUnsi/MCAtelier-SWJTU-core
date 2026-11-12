@@ -96,4 +96,9 @@ extern bool DownloadFileFromUrl(
     const QStringList &UrlList,
     const QStringList &SavePathList);
 
+extern QPair<QString,QString> ProgramCallback(
+    const QString &program,
+    const QStringList &args,
+    qint64 WaitFor);
+
 #endif // FILEFUNCTIONS_H
