@@ -30,7 +30,7 @@
 
 #include "FileFunctions.h"
 
-extern QPair<qint64,qint64> GetMemoryQt();
+extern QPair<qint64,qint64> GetMemory();
 
 
 

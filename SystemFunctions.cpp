@@ -24,7 +24,7 @@
  * @brief 获取当前设备的{总物理内存大小（单位：MB），可用内存大小（单位：MB）}
  * @return 当前设备的{总物理内存大小,可用内存大小}，返回{0,0}表示获取失败
  */
-QPair<qint64,qint64> GetMemoryQt()
+QPair<qint64,qint64> GetMemory()
 {
     qint64 UsableMem=0;//单位：MB
     qint64 TotalMem=0;

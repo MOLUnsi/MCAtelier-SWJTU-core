@@ -68,19 +68,8 @@ void Widget::on_pushButton_clicked()
 #ifdef QT_DEBUG
     return;
 #endif
-//    system("Script.bat");
     QProcess proc;
     proc.startDetached(QStringLiteral("cmd.exe"),{QStringLiteral("/c"),"start","Script.bat"});
-/*    bool started=proc.waitForStarted(5000);
-    bool alive=proc.state()==QProcess::Running;
-    if(!started)
-    {
-        OutputTextIntoFile("错误：脚本未能正常唤起\n","Log.txt");
-    }
-    if(!alive)
-    {
-        OutputTextIntoFile("错误：Minecraft未能启动\n","Log.txt");
-    }*/
     OutputTextIntoFile("启动操作已完成\n------------------------------------------------------------\n\n","Log.txt");
 }
 

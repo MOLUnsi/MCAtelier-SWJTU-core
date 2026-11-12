@@ -336,36 +336,18 @@ bool FileExist(const QString &FilePath)
     QFile file(FilePath);
     return file.exists();
 }
-/*
-bool DownloadFileFromUrl(QString Url,QString SavePath)
-{
-    QString cmd="start curl "+Url+" -o "+SavePath;
-    qDebug()<<"\t"<<cmd;
-    QProcess proc;
-    proc.start("curl",{Url,"-o",SavePath});
-    if(!proc.waitForStarted(10000))
-    {
-        proc.kill();
-        return false;
-    }
-    return true;
-}
-*/
+
 bool DownloadFileFromUrl(const QString &Url, const QString &Path)
 {
+    if(Url.size()==0)
+    {
+        return true;
+    }
     QFileInfo fileInfo(Path);
     QDir dir = fileInfo.absoluteDir();
     QStringList arguments;
     arguments << "-L" << "--fail" << "-o" << Path << Url;
     QProcess proc;
-/*
-#ifdef Q_OS_WIN
-    proc.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        args->flags |= CREATE_NEW_CONSOLE;          // 创建新控制台窗口
-        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES; // 不使用父进程的句柄
-    });
-#endif
-*/
     proc.start("curl.exe", arguments);
     if(!proc.waitForStarted(-1))
     {
@@ -393,6 +375,10 @@ bool DownloadFileFromUrl(const QString &Url, const QString &Path)
 }
 bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList)
 {
+    if(UrlList.empty())
+    {
+        return true;
+    }
     QStringList arguments;
     arguments <<"-Z"<< "-L" << "--fail";
     for(int i=0;i<PathList.size();i++)
@@ -413,8 +399,6 @@ bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList
         qDebug()<<"curl启动失败：\t"<<proc.errorString();
         return false;
     }
-//    Log()<<"正在从"<<Url<<"下载文件到"<<Path<<"\n";
-//    qDebug()<<"正在从"<<Url<<"下载文件到"<<Path;
     if(!proc.waitForFinished(-1))
     {
         Log()<<"curl未正常结束：\t"<<proc.errorString()<<"\n";
