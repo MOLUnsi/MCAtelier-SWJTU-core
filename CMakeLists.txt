@@ -17,7 +17,7 @@ qt_add_executable(MCAtelier-SWJTU-core
     CreateLaunchScript.cpp
     SystemFunctions.h
     SystemFunctions.cpp
-    log.h log.cpp
+
     UI-FILES.LICENSE
     README.md
 

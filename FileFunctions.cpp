@@ -18,6 +18,14 @@
  */
 #include "FileFunctions.h"
 
+Log::Log() {}
+
+Log & Log::operator<<(const QString &Content)
+{
+    OutputTextIntoFile(Content,LogFileName);
+    return *this;
+}
+
 bool IsAllAscii(const QString &s)
 {
     for (QChar c : s) {
@@ -432,4 +440,26 @@ QPair<QString,QString> ProgramCallback(const QString &program,const QStringList 
     QString error =proc.readAllStandardError();
     return QPair<QString,QString>(output,error);
 
+}
+
+QJsonDocument ReadJson(const QString &file)
+{
+    QFile JsonFile(file);
+    if(!JsonFile.open(QIODevice::ReadOnly|QIODevice::Text))
+    {
+        Log()<<file<<"打开失败";
+        return QJsonDocument();
+    }
+    QTextStream in(&JsonFile);
+    in.setEncoding(QStringConverter::Utf8);
+    QString Content=in.readAll();
+    JsonFile.close();
+    QJsonParseError JsonError;
+    QJsonDocument doc=QJsonDocument::fromJson(Content.toUtf8(),&JsonError);
+    if (JsonError.error != QJsonParseError::NoError&&!doc.isNull())
+    {
+        Log()<<file<<"格式错误。错误信息:"+JsonError.errorString()+"\n";
+        return QJsonDocument();
+    }
+    return doc;
 }

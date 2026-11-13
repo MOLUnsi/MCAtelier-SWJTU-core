@@ -132,6 +132,22 @@ QString qm(QString str)
         return "\""+str+"\"";
     return str;
 }
+
+bool JsonDownload(const QString &MinecraftPath,const QString &GameName)
+{
+    QString VersionManifestV2Json=MinecraftPath+"/versions/version_manifest_v2.json";
+    if(!FileExist(VersionManifestV2Json))
+    {
+        if(!DownloadFileFromUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",VersionManifestV2Json))
+        {
+            Log()<<"版本清单"<<VersionManifestV2Json<<"下载失败\n";
+            return false;
+        }
+    }
+    //版本json目前还没有能力在下载进行修改，暂且不谈
+    return true;
+}
+
 /**
  * @brief 设定分配给Java的内存大小，以生成-Xmx参数
  * @param Xm_ 0:Xmx 1:Xms 默认是0:Xmx
@@ -233,16 +249,29 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
 {
     QStringList Cp;
     QJsonArray LibrariesArray=RootObject.value("libraries").toArray();
+    QString NativeOS;
+#ifdef Q_OS_WIN
+    NativeOS="natives-windows";
+#endif
+#ifdef Q_OS_MACOS
+    NativeOS="natives-osx";
+#endif
+#ifdef Q_OS_LINUX
+    NativeOS="natives-linux";
+#endif
 //判断natives文件夹是否正常，即是否需要解压natives文件
     bool NativesFolderNormal=(
             QFileInfo(map.value("natives_directory")).exists()&&
-            QFileInfo(map.value("natives_directory")).isDir()&&
+            QFileInfo(map.value("natives_directory")).isDir()
+#ifdef Q_OS_WIN
+            &&
             QFileInfo(map.value("natives_directory")+"/lwjgl64.dll").exists()&&
             QFileInfo(map.value("natives_directory")+"/lwjgl64.dll").isFile()&&
             QFileInfo(map.value("natives_directory")+"/openal64.dll").exists()&&
             QFileInfo(map.value("natives_directory")+"/openal64.dll").isFile()&&
             QFileInfo(map.value("natives_directory")+"/jinput-dx8_64.dll").exists()&&
             QFileInfo(map.value("natives_directory")+"/jinput-dx8_64.dll").isFile()
+#endif
         );
     Log()<<"natives文件夹状态:\t"+(NativesFolderNormal?QStringLiteral("正常"):QStringLiteral("需被补全"))+"\n";
     if(!NativesFolderNormal)
@@ -274,19 +303,19 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
                 urls[path]=url;
             }
             if( FileObject.value("downloads").toObject().contains("classifiers")&&
-                FileObject.value("downloads").toObject().value("classifiers").toObject().contains("natives-windows"))
+                FileObject.value("downloads").toObject().value("classifiers").toObject().contains(NativeOS))
             {
                 QString path=FileObject.value("downloads").toObject()
                                    .value("classifiers").toObject()
-                                   .value("natives-windows").toObject()
+                                   .value(NativeOS).toObject()
                                    .value("path").toString();
                 QString sha1=FileObject.value("downloads").toObject()
                                    .value("classifiers").toObject()
-                                   .value("natives-windows").toObject()
+                                   .value(NativeOS).toObject()
                                    .value("sha1").toString();
                 QString url=FileObject.value("downloads").toObject()
                                    .value("classifiers").toObject()
-                                   .value("natives-windows").toObject()
+                                   .value(NativeOS).toObject()
                                    .value("url").toString();
                 FinalFileName.append(path);
                 sha1s[path]=sha1;
@@ -335,7 +364,7 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
 #ifndef QT_DEBUG
     for(const QString &FileName:Cp)
     {
-        if(!NativesFolderNormal && FileName.contains("natives-windows.jar"))
+        if(!NativesFolderNormal && FileName.contains(NativeOS+".jar"))
         {
             Log()<<"需要被解压到natives文件夹的.jar文件为:\t"<<FileName<<"\n";
             ExtractZip(FileName,map.value("natives_directory"));
@@ -481,6 +510,7 @@ bool Create(
     QString OutputFileName)
 {
     ClearFile(OutputFileName);
+    JsonDownload(MinecraftPath,GameName);
     Log()<<QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd")+"\t此刻进行了一次启动\n"
         <<"启动的游戏版本名称:\t"+GameName+"\n"
         <<".minecraft文件夹路径:\t"+MinecraftPath+"\n"
@@ -503,23 +533,7 @@ bool Create(
 
 //由此开始解析游戏json文件
 
-    QFile GameJson(VersionPath+"/"+GameName+".json");
-    if(!GameJson.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-        Log()<<VersionPath+"/"+GameName+".json打开失败";
-        return false;
-    }
-    QTextStream in(&GameJson);
-    in.setEncoding(QStringConverter::Utf8);
-    QString Content=in.readAll();
-    GameJson.close();
-    QJsonParseError JsonError;
-    QJsonDocument doc=QJsonDocument::fromJson(Content.toUtf8(),&JsonError);
-    if (JsonError.error != QJsonParseError::NoError && !doc.isNull()) {
-        Log()<<"游戏json格式错误:\n\t错误信息:\t"+JsonError.errorString()+"\n";
-        return false;
-    }
-    QJsonObject GameJsonRootObject=doc.object();
+    QJsonObject GameJsonRootObject=ReadJson(VersionPath+"/"+GameName+".json").object();
     map["classpath"]=ClassPathArgs(MinecraftPath,GameJsonRootObject,GameName,map);
 
 //由此开始找到所有版本的Java

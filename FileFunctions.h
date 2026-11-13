@@ -27,14 +27,22 @@
 #include <QStandardPaths>
 #include <QProcess>
 #include <QCryptographicHash>
-
-#include "log.h"
+#include <QJsonDocument>
 
 #ifdef Q_OS_WIN
 
 #include <Windows.h>
 
 #endif
+
+const QString LogFileName="log.txt";
+
+class Log
+{
+public:
+    Log();
+    Log & operator << (const QString &Content);
+};
 
 extern bool IsAllAscii(
     const QString &s);
@@ -100,5 +108,8 @@ extern QPair<QString,QString> ProgramCallback(
     const QString &program,
     const QStringList &args,
     qint64 WaitFor);
+
+extern QJsonDocument ReadJson(
+    const QString &file);
 
 #endif // FILEFUNCTIONS_H

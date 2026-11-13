@@ -18,7 +18,7 @@
  */
 #include "SystemFunctions.h"
 
-#include"log.h"
+#include "FileFunctions.h"
 
 /**
  * @brief 获取当前设备的{总物理内存大小（单位：MB），可用内存大小（单位：MB）}
