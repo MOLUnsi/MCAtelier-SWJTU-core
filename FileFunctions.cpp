@@ -18,6 +18,21 @@
  */
 #include "FileFunctions.h"
 
+const QString LogFileName="log.txt";
+const QString CachePath=AppDataPath()+"/MCAtelier";
+
+/**
+ * @brief 如果字符串中带有空格，则在它的两端加上双引号；否则不做任何处理
+ * @param str 需要处理的字符串
+ * @return 处理后的字符串
+ */
+QString qm(QString str)
+{
+    if(str.contains(" ")&&!str.contains("\""))
+        return "\""+str+"\"";
+    return str;
+}
+
 Log::Log() {}
 
 Log & Log::operator<<(const QString &Content)
@@ -69,28 +84,26 @@ bool FindFileAndSavePaths(
         QDirIterator::Subdirectories
         );
 
-    while (it.hasNext()) {
+    while (it.hasNext())
+    {
+        qDebug()<<it.filePath();
         it.next();
-        QFileInfo info = it.fileInfo();
-        resultPaths << info.absoluteFilePath(); // 绝对路径
+        resultPaths << it.fileInfo().absoluteFilePath(); // 绝对路径
     }
-
-    // 如果没找到任何文件，也生成空文件（可选）
-    QFile outFile(OutputFile);
-    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text))
-        return false;
-
-    QTextStream out(&outFile);
-    out.setEncoding(QStringConverter::Utf8); // Qt6 写法
-
-    for (const QString &path : resultPaths) {
-        if(IsAllAscii(path))
+    for(QString path:resultPaths)
+    {
+        if(path.size()==0)
         {
-            out << path << "\n";
+            continue;
         }
+        if(!IsAllAscii(path))
+        {
+            path=QFileInfo(path).absolutePath();//去掉文件名的路径
+            AutoMKLink(path,AppDataPath()+"/MCAtelier/JavaPath");
+            path+="/"+AimFile;
+        }
+        OutputTextIntoFile(path+"\n",OutputFile);
     }
-
-    outFile.close();
     return true;
 }
 
@@ -202,10 +215,15 @@ QStringList GetSubFolderNames(const QString &path)
     // 只保留目录，不保留 "." 和 ".."
     dir.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
     dir.setSorting(QDir::Name);
-
+    dir.sorting();
     return dir.entryList();   // 返回 QStringList
 }
 
+#ifdef Q_OS_WIN
+/**
+ * @brief 获取%AppData%/Roaming文件夹位置
+ * @return %AppData%/Roaming文件夹位置
+ */
 QString AppDataPath()
 {
     QDir dir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
@@ -213,12 +231,15 @@ QString AppDataPath()
     return dir.absolutePath();
 }
 
-
+/**
+ * @brief 获取官方启动器默认的.minecraft文件夹位置
+ * @return 官方启动器默认的.minecraft文件夹位置
+ */
 QString DefaultMinecraftPath()
 {
     return AppDataPath()+"/.minecraft";
 }
-
+#endif
 
 /**
  * @brief 把指定压缩包文件解压到目标目录中
@@ -283,17 +304,56 @@ bool CreatePathIfNotExist(QString path)
     return true;
 }
 
+bool DeletePathIfExist(QString path)
+{
+    bool rt=true;
+    for(auto it:GetSubFolderNames(path))
+    {
+        QStringList args;
+        args<<"/c"<<"rmdir"<<path+"/"+it;
+        bool flag=ProgramCallback("cmd",args,-1).second.size()==0;
+        rt=rt&&flag;
+    }
+    QStringList args;
+    args<<"/c"<<"rmdir"<<path;
+    bool flag=(ProgramCallback("cmd",args,-1).second.size()==0);
+    return rt&&flag;
+}
+
 bool SearchForJava()
 {
     if(!(QFileInfo("JavaPath.txt").exists()))
     {
-        OutputTextIntoFile("正在检索所有Java的位置......\n","Log.txt");
-        bool flag=FindFileAndSavePaths("C:/","java.exe","JavaPath.txt");
+        DeletePathIfExist(CachePath+"/JavaPath");
+        CreatePathIfNotExist(CachePath+"/JavaPath");
+        ClearFile("JavaPath.txt");
+        Log()<<"正在检索所有Java的位置......\n";
+        QStringList JavaPathAllowlist;
+        JavaPathAllowlist
+            <<"C:/Program Files/Java"
+            <<"C:/Program Files (x86)/Java"
+            <<"C:/Program Files/Eclipse Adoptium"
+            <<"C:/Program Files/Microsoft"
+            <<"C:/Program Files/Zulu"
+            <<"C:/Program Files/BellSoft"
+            <<"C:/Program Files/Amazon Corretto"
+            <<QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)
+            <<QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
+            <<QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+            <<QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+            <<QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+        bool flag=false;
+        for(const QString &str:JavaPathAllowlist)
+        {
+            qDebug()<<str<<":";
+            bool found=FindFileAndSavePaths(str,"java.exe","JavaPath.txt");
+            flag=flag||found;
+        }
         if(!flag)
         {
             return false;
         }
-        OutputTextIntoFile("已经检索所有Java的位置\n","Log.txt");
+        Log()<<"已经检索所有Java的位置\n";
     }
     return true;
 }
@@ -381,6 +441,7 @@ bool DownloadFileFromUrl(const QString &Url, const QString &Path)
     }
     return true;
 }
+
 bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList)
 {
     if(UrlList.empty())
@@ -462,4 +523,36 @@ QJsonDocument ReadJson(const QString &file)
         return QJsonDocument();
     }
     return doc;
+}
+
+bool mklink(QString from,QString to)
+{
+    from.replace("/","\\");
+    to.replace("/","\\");
+    QStringList args;
+    args<<"/c"<<"mklink"<<"/J"<<to<<from;
+    QString fail=qPrintable(ProgramCallback("cmd",args,500).second);
+    if(fail.size()!=0)
+    {
+        qDebug()<<fail;
+        return false;
+    }
+    return true;
+}
+/**
+ * @brief 自动建立链接
+ * @param path 原路径
+ * @param LinkPath 链接存储处
+ * @return
+ */
+bool AutoMKLink(QString &path,QString LinkPath)
+{
+    QByteArray digest = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha224);
+    QString HashPath = QString::fromLatin1(digest.toHex());
+    HashPath=HashPath.left(16);//取前16位
+    QString NewAbsPath=LinkPath+"/"+HashPath;
+    qDebug()<<qPrintable("mklink: from "+path+"\tto "+NewAbsPath);
+    bool ret=mklink(path,NewAbsPath);
+    path=NewAbsPath;
+    return ret;
 }

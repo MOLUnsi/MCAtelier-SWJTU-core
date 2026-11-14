@@ -35,7 +35,10 @@
 
 #endif
 
-const QString LogFileName="log.txt";
+extern QString qm(QString str);
+
+extern const QString LogFileName;
+extern const QString CachePath;
 
 class Log
 {
@@ -73,15 +76,20 @@ extern bool ClearFile(
 extern QStringList GetSubFolderNames(
     const QString &path);
 
+#ifdef Q_OS_WIN
 extern QString AppDataPath();
 
 extern QString DefaultMinecraftPath();
+#endif
 
 extern bool ExtractZip(
     QString ZipPath,
     QString OutDir);
 
 extern bool CreatePathIfNotExist(
+    QString path);
+
+extern bool DeletePathIfExist(
     QString path);
 
 extern bool SearchForJava();
@@ -111,5 +119,13 @@ extern QPair<QString,QString> ProgramCallback(
 
 extern QJsonDocument ReadJson(
     const QString &file);
+
+extern bool mklink(
+    QString from,
+    QString to);
+
+extern bool AutoMKLink(
+    QString &path,
+    QString LinkPath);
 
 #endif // FILEFUNCTIONS_H

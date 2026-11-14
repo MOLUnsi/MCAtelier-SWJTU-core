@@ -43,8 +43,6 @@ extern void ResolvePlaceholders(
     QString& text,
     const QMap<QString, QString> &map);
 
-extern QString qm(QString str);
-
 extern QString SetMemory(
     bool Xm_,
     QString DefauleXm_

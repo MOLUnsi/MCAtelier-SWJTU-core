@@ -40,6 +40,7 @@ Widget::Widget(QWidget *parent)
     ui->MinecraftPathLineEdit->setText(MinecraftPath);
     ui->comboBox->addItems(GetSubFolderNames(MinecraftPath+"/versions"));
 
+    CreatePathIfNotExist(AppDataPath()+"/MCAtelier/JavaPath");
     ui->Condition->setText("正在检索所有Java的位置，请稍等......");
     QFuture<bool> future = QtConcurrent::run([this] { return SearchForJava(); });
     auto *w = new QFutureWatcher<bool>(this);

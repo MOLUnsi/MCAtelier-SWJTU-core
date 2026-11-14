@@ -121,17 +121,6 @@ void ResolvePlaceholders(QString &text, const QMap<QString, QString>& map)
     }
 }
 
-/**
- * @brief 如果字符串中带有空格，则在它的两端加上双引号；否则不做任何处理
- * @param str 需要处理的字符串
- * @return 处理后的字符串
- */
-QString qm(QString str)
-{
-    if(str.contains(" ")&&!str.contains("\""))
-        return "\""+str+"\"";
-    return str;
-}
 
 bool JsonDownload(const QString &MinecraftPath,const QString &GameName)
 {
@@ -509,6 +498,12 @@ bool Create(
     QString UserType,
     QString OutputFileName)
 {
+    if(!IsAllAscii(MinecraftPath))
+    {
+        DeletePathIfExist(CachePath+"/Minecraft");
+        CreatePathIfNotExist(CachePath+"/Minecraft");
+        AutoMKLink(MinecraftPath,CachePath+"/Minecraft");
+    }
     ClearFile(OutputFileName);
     JsonDownload(MinecraftPath,GameName);
     Log()<<QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd")+"\t此刻进行了一次启动\n"
