@@ -39,6 +39,7 @@ extern QString qm(QString str);
 
 extern const QString LogFileName;
 extern const QString CachePath;
+extern qint64 level;
 
 class Log
 {
@@ -46,6 +47,9 @@ public:
     Log();
     Log & operator << (const QString &Content);
 };
+
+extern bool IsAscii(
+    const QChar &c);
 
 extern bool IsAllAscii(
     const QString &s);
@@ -109,8 +113,8 @@ extern bool DownloadFileFromUrl(
     const QString &SavePath);
 
 extern bool DownloadFileFromUrl(
-    const QStringList &UrlList,
-    const QStringList &SavePathList);
+    QStringList UrlList,
+    QStringList SavePathList);
 
 extern QPair<QString,QString> ProgramCallback(
     const QString &program,

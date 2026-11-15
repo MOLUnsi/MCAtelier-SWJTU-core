@@ -25,7 +25,6 @@
 #define endl() if(IF_ENDL){OutputTextIntoFile("\n",OutputFileName);}else{OutputTextIntoFile(" ",OutputFileName);}
 const QString LauncherName="MCAtelier-SWJTU";
 const QString LauncherVersion="dev";
-
 /**
  * @brief 判断某个对象是否符合要求。如果没有rules规则，默认符合；如果有rules规则，按照rules规则判断
  * @param FileObject 对象的名称
@@ -34,8 +33,10 @@ const QString LauncherVersion="dev";
  */
 bool IfRulesObeyed(const QJsonObject &FileObject)
 {
+    level++;
     if(!FileObject.contains("rules"))
     {
+        level--;
         return true;
     }
     QJsonArray RulesArray=FileObject.value("rules").toArray();
@@ -81,6 +82,7 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
             win=osx=linux=allowance;
         }
     }
+    level--;
 #ifdef Q_OS_WIN
     return win;
 #endif
@@ -99,9 +101,11 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
  */
 void ResolvePlaceholders(QString &text, const QMap<QString, QString>& map)
 {
+    level++;
     static const QRegularExpression re("\\$\\{([^}]+)\\}");
     if(text.size()==0)
     {
+        level--;
         return;
     }
     for(;;)
@@ -119,21 +123,27 @@ void ResolvePlaceholders(QString &text, const QMap<QString, QString>& map)
 
         text.replace(m.capturedStart(), m.capturedLength(), value);
     }
+    level--;
 }
 
 
 bool JsonDownload(const QString &MinecraftPath,const QString &GameName)
 {
+    level++;
     QString VersionManifestV2Json=MinecraftPath+"/versions/version_manifest_v2.json";
     if(!FileExist(VersionManifestV2Json))
     {
+        Log()<<"\n开始下载版本清单文件";
         if(!DownloadFileFromUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",VersionManifestV2Json))
         {
-            Log()<<"版本清单"<<VersionManifestV2Json<<"下载失败\n";
+            Log()<<"└版本清单"+VersionManifestV2Json+"下载失败";
+            level--;
             return false;
         }
+        Log()<<"└下载成功";
     }
     //版本json目前还没有能力在下载进行修改，暂且不谈
+    level--;
     return true;
 }
 
@@ -145,8 +155,10 @@ bool JsonDownload(const QString &MinecraftPath,const QString &GameName)
  */
 QString SetMemory(bool Xm_=0,QString DefaultXm_="")
 {
+    level++;
     if(DefaultXm_.size())
     {
+        level--;
         return DefaultXm_;
     }
     QPair<qint64,qint64> MemInfo=GetMemory();//{总内存,可用内存}
@@ -157,6 +169,7 @@ QString SetMemory(bool Xm_=0,QString DefaultXm_="")
     mem=qMin(qMin(TotalMemory/2,TotalMemory-4*GB),AvailableMemory-qMax(2*GB,TotalMemory*3/20));
     mem=qMax(mem,2*GB);//下界2GB
     mem=qMin(mem,10*GB);//上界10GB
+    level--;
     return "-Xm"+(Xm_?QStringLiteral("s"):QStringLiteral("x"))+QString::number(mem)+"m";
 }
 
@@ -168,6 +181,9 @@ QString SetMemory(bool Xm_=0,QString DefaultXm_="")
  */
 QString JVMArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
+    level++;
+    Log()<<"";
+    Log()<<"开始生成JVM参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
     {
@@ -223,6 +239,8 @@ QString JVMArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
         );
         Args.append(qm(map.value("classpath")));
     }
+    Log()<<"└JVM参数生成完毕";
+    level--;
     return Args.join(IF_ENDL?"\n":" ");
 }
 
@@ -236,6 +254,9 @@ QString JVMArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 
 QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameName,const QMap<QString,QString> &map)
 {
+    level++;
+    Log()<<"";
+    Log()<<"开始生成-cp参数";
     QStringList Cp;
     QJsonArray LibrariesArray=RootObject.value("libraries").toArray();
     QString NativeOS;
@@ -250,8 +271,8 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
 #endif
 //判断natives文件夹是否正常，即是否需要解压natives文件
     bool NativesFolderNormal=(
-            QFileInfo(map.value("natives_directory")).exists()&&
-            QFileInfo(map.value("natives_directory")).isDir()
+            QDir(map.value("natives_directory")).exists()
+/*
 #ifdef Q_OS_WIN
             &&
             QFileInfo(map.value("natives_directory")+"/lwjgl64.dll").exists()&&
@@ -261,13 +282,15 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
             QFileInfo(map.value("natives_directory")+"/jinput-dx8_64.dll").exists()&&
             QFileInfo(map.value("natives_directory")+"/jinput-dx8_64.dll").isFile()
 #endif
+*/
         );
-    Log()<<"natives文件夹状态:\t"+(NativesFolderNormal?QStringLiteral("正常"):QStringLiteral("需被补全"))+"\n";
+    Log()<<"├检查natives文件夹状态:\t"+(NativesFolderNormal?QStringLiteral("正常"):QStringLiteral("需被补全"));
     if(!NativesFolderNormal)
     {
-        CreatePathIfNotExist(map["natives_directory"]);
+        CreatePathIfNotExist(map.value("natives_directory"));
     }
     QStringList UrlsToDld,PathsToDld;
+    Log()<<"├开始查找资源文件";
     for(const QJsonValue &FIleValue:LibrariesArray)
     {
         QJsonObject FileObject=FIleValue.toObject();
@@ -326,6 +349,7 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
             QString comment="";
             QString path=GroupPath+"/"+ArtifactId+"/"+version+"/"+ArtifactId+"-"+version+".jar";
             QString url=FileObject.value("url").toString();
+            sha1s[path]=FileObject.value("sha1").toString();
             urls[path]=url+path;
 #ifdef QT_DEBUG
             comment="\t<--这个文件名是手动拼接的";
@@ -338,12 +362,15 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
             {
                 QString WholeFinalFileName=MinecraftPath+QStringLiteral("/libraries/")+it;//带绝对路径的文件
                 //开始检验sha1，看文件是否损坏
-                if(!FileExist(WholeFinalFileName) || !sha1s.contains(it) || !VerifyFileSha1(WholeFinalFileName,sha1s.value(it)))
+                if(!FileExist(WholeFinalFileName)||QFileInfo(WholeFinalFileName).size()==0)
                 {
-                    Log()<<"需要下载文件："<<WholeFinalFileName<<"\t预期sha1:\t"+sha1s.value(it)+"\t实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex())+"\n";
-                    std::srand(time(0));
-                    UrlsToDld.append(urls.value(it));
-                    PathsToDld.append(WholeFinalFileName);
+                    if(!sha1s.contains(it) || !VerifyFileSha1(WholeFinalFileName,sha1s.value(it)))
+                    {
+                        Log()<<"├────需要下载文件："+WholeFinalFileName+"\t预期sha1:\t"+sha1s.value(it)+"\t实际sha1:\t"+QString::fromLatin1(FileSha1(WholeFinalFileName).toHex());
+                        std::srand(time(0));
+                        UrlsToDld.append(urls.value(it));
+                        PathsToDld.append(WholeFinalFileName);
+                    }
                 }
                 Cp.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+WholeFinalFileName);
             }
@@ -351,16 +378,20 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
     }
     DownloadFileFromUrl(UrlsToDld,PathsToDld);
 #ifndef QT_DEBUG
+    Log()<<"├开始解压natives文件到natives文件夹";
     for(const QString &FileName:Cp)
     {
         if(!NativesFolderNormal && FileName.contains(NativeOS+".jar"))
         {
-            Log()<<"需要被解压到natives文件夹的.jar文件为:\t"<<FileName<<"\n";
+            Log()<<"├────需要被解压到natives文件夹的.jar文件为:\t"+FileName;
             ExtractZip(FileName,map.value("natives_directory"));
         }
     }
+    Log()<<"├natives文件夹处理完毕";
 #endif
     Cp.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+MinecraftPath+"/versions/"+GameName+"/"+GameName+".jar");
+    Log()<<"└-cp参数生成完毕";
+    level--;
     return Cp.join(map.value("classpath_separator")+(IF_ENDL?"\n":""));
 }
 
@@ -372,6 +403,9 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
  */
 QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
+    level++;
+    Log()<<"";
+    Log()<<"开始生成default-user-jvm参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
     {
@@ -412,6 +446,8 @@ QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
             Args.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+arg);
         }
     }
+    Log()<<"└default-user-jvm参数生成完毕";
+    level--;
     return Args.join(IF_ENDL?"\n":" ");
 }
 
@@ -423,6 +459,9 @@ QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
  */
 QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
+    level++;
+    Log()<<"";
+    Log()<<"开始生成游戏参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
     {
@@ -451,6 +490,8 @@ QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
         }
         Args.append((IF_ENDL?QStringLiteral("\n"):QStringLiteral(""))+arg);
     }
+    Log()<<"└游戏参数生成完毕";
+    level--;
     return Args.join(IF_ENDL?"\n":" ");
 }
 
@@ -498,18 +539,22 @@ bool Create(
     QString UserType,
     QString OutputFileName)
 {
+    level++;
+    Log()<<"";
+    Log()<<"开始生成脚本";
     if(!IsAllAscii(MinecraftPath))
     {
         DeletePathIfExist(CachePath+"/Minecraft");
         CreatePathIfNotExist(CachePath+"/Minecraft");
         AutoMKLink(MinecraftPath,CachePath+"/Minecraft");
+        Log()<<"├.minecraft地址："+MinecraftPath;
     }
     ClearFile(OutputFileName);
     JsonDownload(MinecraftPath,GameName);
-    Log()<<QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd")+"\t此刻进行了一次启动\n"
-        <<"启动的游戏版本名称:\t"+GameName+"\n"
-        <<".minecraft文件夹路径:\t"+MinecraftPath+"\n"
-        <<"启动的用户名:\t"+UserName+"\n";
+    Log()<<"├"+QDateTime::currentDateTime().toString("yyyy.MM.dd hh:mm:ss.zzz ddd")+"\t此刻进行了一次启动";
+    Log()<<"├启动的游戏版本名称:\t"+GameName;
+    Log()<<"├.minecraft文件夹路径:\t"+MinecraftPath;
+    Log()<<"├启动的用户名:\t"+UserName;
 
     QMap<QString,QString>map;
     map["version_name"]=GameName;
@@ -540,20 +585,19 @@ bool Create(
     QString majorVersion=QString::number(GameJsonRootObject.value("javaVersion").toObject().value("majorVersion").toInt());//目标Java版本,Java8值为8
     QString ChosenJavaPath;
     int MinVersion=INT_MAX;     //大于等于majorVersion的所有Java版本里最小的Java版本（最接近majorVersion）
-    for(const QString &it:JavaPath)
+    for(QString it:JavaPath)
     {
+        it.remove("\n");
+        it.remove("\r");
+        Log()<<"├java测试："+it;
         QString JavaNow=it;
-        if(*JavaNow.rbegin()=='\n')//去掉结尾的"\n"
-        {
-            JavaNow.chop(1);
-        }
         QProcess pr;
         pr.setProgram(JavaNow); // 不加引号
         pr.setArguments(QStringList() << "-fullversion");
         pr.setProcessChannelMode(QProcess::MergedChannels);   // 关键：标准错误并入标准输出
         pr.start();
         if (!pr.waitForFinished(3000)) {           // 最多等 3 秒
-            Log()<<"测试获取各个java版本时启动失败或超时:\n\t所测试的Java:\t"+JavaNow+"\n\t错误信息:\t"+pr.errorString()+"\n";
+            Log()<<"├测试的Java："+JavaNow+"失败\n├────错误信息："+pr.errorString();
             continue;
         }
         QString rt=QString::fromLocal8Bit(pr.readAllStandardOutput());//返回字符串
@@ -574,6 +618,7 @@ bool Create(
             MinVersion=VersionId.toInt();
         }
     }
+    Log()<<"├已选择合适的Java："+ChosenJavaPath;
 
 //由此开始依据Java位数（32 or 64）推测物理内存大小
 
@@ -583,7 +628,8 @@ bool Create(
     pr.setProcessChannelMode(QProcess::MergedChannels);   // 关键：标准错误并入标准输出
     pr.start();
     if (!pr.waitForFinished(3000)) {           // 最多等 3 秒
-        Log()<<"测试java位数(32 or 64)时启动失败或超时:\n\t所测试的Java:\t"+ChosenJavaPath+"\n\t错误信息:\t"+pr.errorString()+"\n";
+        Log()<<"├测试java："+ChosenJavaPath+"位数时失败\n├────错误信息："+pr.errorString();
+        level--;
         return false;
     }
     QString rt=QString::fromLocal8Bit(pr.readAllStandardOutput());//返回字符串
@@ -603,7 +649,9 @@ bool Create(
 
     OutputTextIntoFile("cd /D \""+VersionPath+"\"\n\n",OutputFileName);
 
+    level++;
     OutputTextIntoFile("\""+ChosenJavaPath+"\"",OutputFileName);//输出Java路径
+    level--;
     endl();
 
     OutputTextIntoFile(JVMArgs(GameJsonRootObject,map),OutputFileName);
@@ -628,11 +676,20 @@ bool Create(
     OutputTextIntoFile(DUJArgs(GameJsonRootObject,map),OutputFileName);
     endl();
 
+    level++;
+    Log()<<"开始生成主类";
     OutputTextIntoFile(GameJsonRootObject.value("mainClass").toString(),OutputFileName);
+    Log()<<"└已生成主类";
+    level--;
     endl();
 
     OutputTextIntoFile(GameArgs(GameJsonRootObject,map),OutputFileName);
     endl();
 
+    OutputTextIntoFile("exit",OutputFileName);
+    endl();
+
+    Log()<<"└启动脚本生成完毕";
+    level--;
     return true;
 }

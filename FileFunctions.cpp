@@ -20,7 +20,7 @@
 
 const QString LogFileName="log.txt";
 const QString CachePath=AppDataPath()+"/MCAtelier";
-
+qint64 level=-1;
 /**
  * @brief 如果字符串中带有空格，则在它的两端加上双引号；否则不做任何处理
  * @param str 需要处理的字符串
@@ -28,8 +28,13 @@ const QString CachePath=AppDataPath()+"/MCAtelier";
  */
 QString qm(QString str)
 {
+    level++;
     if(str.contains(" ")&&!str.contains("\""))
+    {
+        level--;
         return "\""+str+"\"";
+    }
+    level--;
     return str;
 }
 
@@ -37,15 +42,29 @@ Log::Log() {}
 
 Log & Log::operator<<(const QString &Content)
 {
-    OutputTextIntoFile(Content,LogFileName);
+    QString c=Content;
+    for(qint64 i=0;i<level;i++)
+    {
+        c="│"+c;
+    }
+    qDebug()<<qPrintable(c);
+    OutputTextIntoFile(c+"\n",LogFileName);
     return *this;
+}
+
+bool IsAscii(const QChar &c)
+{
+    return c.unicode()<=0x7F;
 }
 
 bool IsAllAscii(const QString &s)
 {
-    for (QChar c : s) {
-        if (c.unicode() > 0x7F)
+    for(QChar c:s)
+    {
+        if(c.unicode()>0x7F)
+        {
             return false;
+        }
     }
     return true;
 }
@@ -65,13 +84,24 @@ bool FindFileAndSavePaths(
     const QString &AimFile,
     const QString &OutputFile)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在从根目录"+RootPath+"递归查找文件："+AimFile;
     // 参数检查
     if (RootPath.isEmpty() || AimFile.isEmpty() || OutputFile.isEmpty())
+    {
+        Log()<<"└参数为空";
+        level--;
         return false;
+    }
 
     QDir rootDir(RootPath);
     if (!rootDir.exists())
+    {
+        Log()<<"└根目录不存在";
+        level--;
         return false;
+    }
 
     // 以行为单位保存结果
     QStringList resultPaths;
@@ -83,13 +113,14 @@ bool FindFileAndSavePaths(
         QDir::Files | QDir::NoSymLinks,
         QDirIterator::Subdirectories
         );
-
     while (it.hasNext())
-    {
-        qDebug()<<it.filePath();
+    {   
         it.next();
         resultPaths << it.fileInfo().absoluteFilePath(); // 绝对路径
+        Log()<<"├查找Java地址："+it.fileInfo().absoluteFilePath();
     }
+    Log()<<"├查找到全部Java地址";
+    Log()<<"├开始存入全部Java地址";
     for(QString path:resultPaths)
     {
         if(path.size()==0)
@@ -98,12 +129,17 @@ bool FindFileAndSavePaths(
         }
         if(!IsAllAscii(path))
         {
+            Log()<<"├需要处理Java地址："+path;
             path=QFileInfo(path).absolutePath();//去掉文件名的路径
             AutoMKLink(path,AppDataPath()+"/MCAtelier/JavaPath");
             path+="/"+AimFile;
+            Log()<<"├处理成为："+path;
         }
+        Log()<<"├存入Java地址："+path;
         OutputTextIntoFile(path+"\n",OutputFile);
     }
+    Log()<<"└查找完毕";
+    level--;
     return true;
 }
 
@@ -116,6 +152,7 @@ bool FindFileAndSavePaths(
  */
 QStringList ReadTextFromFile(const QString &AimFile)
 {
+    level++;
     QFile in(AimFile);
     if(!in.exists())
     {
@@ -124,11 +161,15 @@ QStringList ReadTextFromFile(const QString &AimFile)
     }
     QStringList ans;
     if (!in.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        level--;
         return QStringList();
+    }
     while (!in.atEnd()) {
         ans.append(in.readLine());  // 每次只读一行
     }
     in.close();
+    level--;
     return ans;
 }
 
@@ -146,15 +187,18 @@ bool OutputTextIntoFile(
     const QString &Content,
     const QString &AimFile)
 {
+    level++;
     QFile outFile(AimFile);
     if(!outFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append))
     {
+        level--;
         return false;
     }
     QTextStream out(&outFile);
     out.setEncoding(QStringConverter::Utf8); // Qt6 写法
     out<<Content;
     outFile.close();
+    level--;
     return true;
 }
 
@@ -172,9 +216,11 @@ bool OutputTextIntoFile(
     const QStringList &Content,
     const QString &AimFile)
 {
+    level++;
     QFile outFile(AimFile);
     if(!outFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append))
     {
+        level--;
         return false;
     }
     QTextStream out(&outFile);
@@ -184,6 +230,7 @@ bool OutputTextIntoFile(
         out<<line<<"\n";
     }
     outFile.close();
+    level--;
     return true;
 }
 
@@ -195,12 +242,19 @@ bool OutputTextIntoFile(
  */
 bool ClearFile(const QString &AimFile)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在清理文件"+AimFile;
     QFile file(AimFile);
     if(!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
     {
+        Log()<<"└清理文件失败";
+        level--;
         return false;
     }
     file.close();
+    Log()<<"└清理文件成功";
+    level--;
     return true;
 }
 
@@ -211,11 +265,16 @@ bool ClearFile(const QString &AimFile)
  */
 QStringList GetSubFolderNames(const QString &path)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在搜索"+path+"的子文件夹：";
     QDir dir(path);
     // 只保留目录，不保留 "." 和 ".."
     dir.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
     dir.setSorting(QDir::Name);
     dir.sorting();
+    Log()<<"└搜索完毕";
+    level--;
     return dir.entryList();   // 返回 QStringList
 }
 
@@ -226,8 +285,10 @@ QStringList GetSubFolderNames(const QString &path)
  */
 QString AppDataPath()
 {
+    level++;
     QDir dir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
     while(dir.dirName()!=QStringLiteral("Roaming")&&dir.cdUp());
+    level--;
     return dir.absolutePath();
 }
 
@@ -251,13 +312,17 @@ QString DefaultMinecraftPath()
  */
 bool ExtractZip(QString ZipPath,QString OutDir)
 {
+    level++;
+    Log()<<"正在将"+ZipPath+"解压到"+OutDir;
     QFile src(ZipPath);
     if (!src.exists()) {
-        Log()<<"jar不存在:\t"<<ZipPath<<"\n";
+        Log()<<"└jar不存在";
+        level--;
         return false;
     }
     if (!QDir().mkpath(OutDir)) {
-        Log()<<"无法创建目录:"<<OutDir;
+        Log()<<"└无法创建目录";
+        level--;
         return false;
     }
 
@@ -268,66 +333,97 @@ bool ExtractZip(QString ZipPath,QString OutDir)
 
     proc.start("tar", args);
     if (!proc.waitForFinished(30000)) {           // 最多等 30 秒
-        Log()<<"解压超时:\t"<<ZipPath<<"\n";
+        Log()<<"└解压超时";
+        level--;
         return false;
     }
 
     if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        Log()<<"tar解压失败:\t"<<proc.readAllStandardError();
+        Log()<<"└解压失败:"+proc.readAllStandardError();
+        level--;
         return false;
     }
+    Log()<<"└解压成功";
+    level--;
     return true;
 }
 
 bool CreatePathIfNotExist(QString path)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在创建路径："+path;
     if (path.isEmpty())
+    {
+        Log()<<"└传入路径参数为空";
+        level--;
         return false;
+    }
 
     QFileInfo info(path);
 
     // 已存在但不是目录：说明被文件占了，直接报错，不要强行创建
-    if (info.exists() && !info.isDir()) {
-        Log()<<"路径已存在但不是目录:\t"+path+"\n";
+    if (info.exists() && !info.isDir())
+    {
+        Log()<<"└路径已存在但不是目录";
+        level--;
         return false;
     }
 
     // 目录已存在：直接返回成功
     if (info.exists())
+    {
+        Log()<<"└目录已存在";
+        level--;
         return true;
+    }
 
     // mkpath 会逐级创建父目录，比 mkdir 好用
-    if (!QDir().mkpath(path)) {
-        Log()<<"创建目录失败:\t"+path;
+    if (!QDir().mkpath(path))
+    {
+        Log()<<"└创建目录失败";
+        level--;
         return false;
     }
+    Log()<<"└创建目录成功";
+    level--;
     return true;
 }
 
 bool DeletePathIfExist(QString path)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在删除目录："+path;
     bool rt=true;
     for(auto it:GetSubFolderNames(path))
     {
         QStringList args;
         args<<"/c"<<"rmdir"<<path+"/"+it;
+        Log()<<"正在删除子目录："+path+"/"+it;
         bool flag=ProgramCallback("cmd",args,-1).second.size()==0;
         rt=rt&&flag;
     }
     QStringList args;
     args<<"/c"<<"rmdir"<<path;
+    Log()<<"正在删除父目录："+path;
     bool flag=(ProgramCallback("cmd",args,-1).second.size()==0);
+    level--;
     return rt&&flag;
 }
 
 bool SearchForJava()
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在查找Java";
     if(!(QFileInfo("JavaPath.txt").exists()))
     {
-        DeletePathIfExist(CachePath+"/JavaPath");
+//        DeletePathIfExist(CachePath+"/JavaPath");
+        Log()<<"├已创建缓存路径："+CachePath+"/JavaPath";
         CreatePathIfNotExist(CachePath+"/JavaPath");
         ClearFile("JavaPath.txt");
-        Log()<<"正在检索所有Java的位置......\n";
+        Log()<<"├正在检索所有Java的位置......";
         QStringList JavaPathAllowlist;
         JavaPathAllowlist
             <<"C:/Program Files/Java"
@@ -345,16 +441,21 @@ bool SearchForJava()
         bool flag=false;
         for(const QString &str:JavaPathAllowlist)
         {
-            qDebug()<<str<<":";
             bool found=FindFileAndSavePaths(str,"java.exe","JavaPath.txt");
             flag=flag||found;
         }
         if(!flag)
         {
+            level--;
             return false;
         }
-        Log()<<"已经检索所有Java的位置\n";
+        Log()<<"└已经检索所有Java的位置";
     }
+    else
+    {
+        Log()<<"└已有查找记录";
+    }
+    level--;
     return true;
 }
 /**
@@ -364,20 +465,29 @@ bool SearchForJava()
  */
 QByteArray FileSha1(const QString &FilePath)
 {
+    level++;
     QFile file(FilePath);
     if (!file.open(QFile::ReadOnly))
+    {
+        level--;
         return QByteArray();    //打不开文件
+    }
 
     QCryptographicHash hash(QCryptographicHash::Sha1);
 
     // 分块读取，避免大文件一次性占满内存
     constexpr qint64 kChunk = 1024 * 1024; // 1MB
-    while (!file.atEnd()) {
+    while (!file.atEnd())
+    {
         const QByteArray chunk = file.read(kChunk);
         if (chunk.isEmpty())
+        {
+            level--;
             return QByteArray();      // 读失败
+        }
         hash.addData(chunk);
     }
+    level--;
     return hash.result();
 }
 
@@ -391,26 +501,37 @@ QByteArray FileSha1(const QString &FilePath)
  */
 bool VerifyFileSha1(const QString &FilePath, const QString &Expected)
 {
+    level++;
     const QByteArray digest = FileSha1(FilePath);
     if (digest.isEmpty())
+    {
+        level--;
         return false;
+    }
 
     const QString actual = QString::fromLatin1(digest.toHex());
+    level--;
     return actual.compare(Expected.trimmed(), Qt::CaseInsensitive) == 0;
 }
 
 bool FileExist(const QString &FilePath)
 {
+    level++;
     QFile file(FilePath);
+    level--;
     return file.exists();
 }
 
 bool DownloadFileFromUrl(const QString &Url, const QString &Path)
 {
+    level++;
     if(Url.size()==0)
     {
+        level--;
         return true;
     }
+    Log()<<"";
+    Log()<<"正在从"+Url+"下载文件到"+Path;
     QFileInfo fileInfo(Path);
     QDir dir = fileInfo.absoluteDir();
     QStringList arguments;
@@ -419,34 +540,53 @@ bool DownloadFileFromUrl(const QString &Url, const QString &Path)
     proc.start("curl.exe", arguments);
     if(!proc.waitForStarted(-1))
     {
-        Log()<<"curl启动失败：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl启动失败：\t"<<proc.errorString();
+        Log()<<"└curl启动失败："+proc.errorString();
+        level--;
         return false;
     }
-    Log()<<"正在从"<<Url<<"下载文件到"<<Path<<"\n";
-    qDebug()<<"正在从"<<Url<<"下载文件到"<<Path;
     if(!proc.waitForFinished(-1))
     {
-        Log()<<"curl未正常结束：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl未正常结束：\t"<<proc.errorString();
+        Log()<<"└curl未正常结束："+proc.errorString();
         proc.kill();
         proc.waitForFinished();
+        level--;
         return false;
     }
     if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
     {
-        qDebug()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<proc.readAllStandardError();
-        Log()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<QString::fromUtf8(proc.readAllStandardError())<<"\n";
+        Log()<<"└下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
+        level--;
         return false;
     }
+    level--;
     return true;
 }
 
-bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList)
+bool DownloadFileFromUrl(QStringList UrlList,QStringList PathList)
 {
+    level++;
     if(UrlList.empty())
     {
+        level--;
         return true;
+    }
+    Log()<<"";
+    Log()<<"正在下载文件：";
+    for (QString &it:UrlList)
+        it.remove('\n');
+    for (QString &it:PathList)
+        it.remove('\n');
+    for(qint64 i=0;i<UrlList.size();i++)
+    {
+        CreatePathIfNotExist(QFileInfo(PathList.at(i)).absolutePath());
+        if(i==UrlList.size())
+        {
+            Log()<<"└从"+UrlList.at(i)+"到"+PathList.at(i);
+        }
+        else
+        {
+            Log()<<"├从"+UrlList.at(i)+"到"+PathList.at(i);
+        }
     }
     QStringList arguments;
     arguments <<"-Z"<< "-L" << "--fail";
@@ -464,24 +604,26 @@ bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList
     proc.start("curl.exe", arguments);
     if(!proc.waitForStarted(-1))
     {
-        Log()<<"curl启动失败：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl启动失败：\t"<<proc.errorString();
+        Log()<<"└curl启动失败："+proc.errorString();
+        level--;
         return false;
     }
     if(!proc.waitForFinished(-1))
     {
-        Log()<<"curl未正常结束：\t"<<proc.errorString()<<"\n";
-        qDebug()<<"curl未正常结束：\t"<<proc.errorString();
+        Log()<<"└curl未正常结束："+proc.errorString();
         proc.kill();
         proc.waitForFinished();
+        level--;
         return false;
     }
     if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
     {
-        qDebug()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<proc.readAllStandardError();
-        Log()<<"下载失败，退出码="<<QString::number(proc.exitCode())<<"\tstderr="<<QString::fromUtf8(proc.readAllStandardError())<<"\n";
+        Log()<<"└下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
+        level--;
         return false;
     }
+    Log()<<"└下载成功";
+    level--;
     return true;
 }
 
@@ -494,21 +636,24 @@ bool DownloadFileFromUrl(const QStringList &UrlList, const QStringList &PathList
  */
 QPair<QString,QString> ProgramCallback(const QString &program,const QStringList &args,qint64 WaitFor=-1)
 {
+    level++;
     QProcess proc;
     proc.start(program,args);
     proc.waitForFinished(WaitFor);
     QString output=proc.readAllStandardOutput();
     QString error =proc.readAllStandardError();
+    level--;
     return QPair<QString,QString>(output,error);
 
 }
 
 QJsonDocument ReadJson(const QString &file)
 {
+    level++;
     QFile JsonFile(file);
     if(!JsonFile.open(QIODevice::ReadOnly|QIODevice::Text))
     {
-        Log()<<file<<"打开失败";
+        level--;
         return QJsonDocument();
     }
     QTextStream in(&JsonFile);
@@ -519,24 +664,39 @@ QJsonDocument ReadJson(const QString &file)
     QJsonDocument doc=QJsonDocument::fromJson(Content.toUtf8(),&JsonError);
     if (JsonError.error != QJsonParseError::NoError&&!doc.isNull())
     {
-        Log()<<file<<"格式错误。错误信息:"+JsonError.errorString()+"\n";
+        level--;
         return QJsonDocument();
     }
+    level--;
     return doc;
 }
 
 bool mklink(QString from,QString to)
 {
+    level++;
+    Log()<<"";
+    Log()<<"正在创建从  "+from+"  到  "+to+"  的链接";
+    if(QDir(to).exists())
+    {
+        Log()<<"└链接已存在";
+        level--;
+        return true;
+    }
     from.replace("/","\\");
     to.replace("/","\\");
     QStringList args;
     args<<"/c"<<"mklink"<<"/J"<<to<<from;
-    QString fail=qPrintable(ProgramCallback("cmd",args,500).second);
+    QString fail=ProgramCallback("cmd",args,500).second;
+    fail.remove("\n");
+    fail.remove("\r");
     if(fail.size()!=0)
     {
-        qDebug()<<fail;
+        Log()<<"└创建失败。失败信息："+fail;
+        level--;
         return false;
     }
+    Log()<<"└创建成功";
+    level--;
     return true;
 }
 /**
@@ -547,12 +707,30 @@ bool mklink(QString from,QString to)
  */
 bool AutoMKLink(QString &path,QString LinkPath)
 {
-    QByteArray digest = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha224);
+    level++;
+    QStringList PathParts=path.split("/");
+    int pos=PathParts.size()-1;
+    while(IsAllAscii(PathParts.at(pos)))
+    {
+        pos--;
+    }
+    QString left=PathParts.mid(0,pos+1).join("/"),
+        right=PathParts.mid(pos+1,PathParts.size()-pos-1).join("/");
+    QByteArray digest = QCryptographicHash::hash(left.toUtf8(), QCryptographicHash::Sha224);
     QString HashPath = QString::fromLatin1(digest.toHex());
     HashPath=HashPath.left(16);//取前16位
     QString NewAbsPath=LinkPath+"/"+HashPath;
-    qDebug()<<qPrintable("mklink: from "+path+"\tto "+NewAbsPath);
-    bool ret=mklink(path,NewAbsPath);
+    Log()<<"开始自动创建链接";
+    if(!mklink(left,NewAbsPath))
+    {
+        Log()<<"链接创建失败";
+        level--;
+        return false;
+    }
     path=NewAbsPath;
-    return ret;
+    path+="/"+right;
+    Log()<<"";
+    Log()<<"└现在地址："+path;
+    level--;
+    return true;
 }

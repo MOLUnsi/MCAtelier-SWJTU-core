@@ -26,6 +26,7 @@ Widget::Widget(QWidget *parent)
     ui->setupUi(this);
     ui->lineEdit->clear();
     ui->lineEdit->setText("Steve");
+    ClearFile(LogFileName);
     QString MinecraftPath;
 
     QFileInfo file("Current.MinecraftPath.txt");
