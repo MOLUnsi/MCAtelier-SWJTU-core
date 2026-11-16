@@ -42,7 +42,7 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
     QJsonArray RulesArray=FileObject.value("rules").toArray();
     bool win=false,
         osx=false,
-        linux=false;
+        oslinux=false;
     for(const QJsonValue &SingleRuleValue:RulesArray)
     {
         QJsonObject SingleRuleObject=SingleRuleValue.toObject();
@@ -74,12 +74,12 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
             }
             if(OSName=="linux")
             {
-                linux=allowance;
+                oslinux=allowance;
             }
         }
         else
         {
-            win=osx=linux=allowance;
+            win=osx=oslinux=allowance;
         }
     }
     level--;
@@ -87,7 +87,7 @@ bool IfRulesObeyed(const QJsonObject &FileObject)
     return win;
 #endif
 #ifdef Q_OS_LINUX
-    return linux;
+    return oslinux;
 #endif
 #ifdef Q_OS_MACOS
     return osx;

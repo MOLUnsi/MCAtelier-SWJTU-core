@@ -80,11 +80,9 @@ extern bool ClearFile(
 extern QStringList GetSubFolderNames(
     const QString &path);
 
-#ifdef Q_OS_WIN
 extern QString AppDataPath();
 
 extern QString DefaultMinecraftPath();
-#endif
 
 extern bool ExtractZip(
     QString ZipPath,

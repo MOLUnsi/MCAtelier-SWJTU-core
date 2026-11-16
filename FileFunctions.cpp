@@ -278,7 +278,6 @@ QStringList GetSubFolderNames(const QString &path)
     return dir.entryList();   // 返回 QStringList
 }
 
-#ifdef Q_OS_WIN
 /**
  * @brief 获取%AppData%/Roaming文件夹位置
  * @return %AppData%/Roaming文件夹位置
@@ -300,7 +299,6 @@ QString DefaultMinecraftPath()
 {
     return AppDataPath()+"/.minecraft";
 }
-#endif
 
 /**
  * @brief 把指定压缩包文件解压到目标目录中
