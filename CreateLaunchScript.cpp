@@ -182,7 +182,6 @@ QString SetMemory(bool Xm_=0,QString DefaultXm_="")
 QString JVMArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
     level++;
-    Log()<<"";
     Log()<<"开始生成JVM参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
@@ -255,7 +254,6 @@ QString JVMArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameName,const QMap<QString,QString> &map)
 {
     level++;
-    Log()<<"";
     Log()<<"开始生成-cp参数";
     QStringList Cp;
     QJsonArray LibrariesArray=RootObject.value("libraries").toArray();
@@ -404,7 +402,6 @@ QString ClassPathArgs(QString MinecraftPath,QJsonObject RootObject,QString GameN
 QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
     level++;
-    Log()<<"";
     Log()<<"开始生成default-user-jvm参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
@@ -460,7 +457,6 @@ QString DUJArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 QString GameArgs(QJsonObject RootObject,const QMap<QString,QString> &map)
 {
     level++;
-    Log()<<"";
     Log()<<"开始生成游戏参数";
     QStringList Args;
     if(RootObject.contains("arguments"))
@@ -540,7 +536,6 @@ bool Create(
     QString OutputFileName)
 {
     level++;
-    Log()<<"";
     Log()<<"开始生成脚本";
     if(!IsAllAscii(MinecraftPath))
     {
@@ -645,10 +640,11 @@ bool Create(
 
     map["launcher_name"]=LauncherName;
     map["launcher_version"]=LauncherVersion;
+/*
     OutputTextIntoFile("chcp 936>nul\n",OutputFileName);
 
     OutputTextIntoFile("cd /D \""+VersionPath+"\"\n\n",OutputFileName);
-
+*/
     level++;
     OutputTextIntoFile("\""+ChosenJavaPath+"\"",OutputFileName);//输出Java路径
     level--;
@@ -693,3 +689,15 @@ bool Create(
     level--;
     return true;
 }
+
+QPair<QString,QString> StartScript()
+{
+    QPair<QString,QString> callback;
+#ifdef Q_OS_WIN
+    callback=ProgramCallback("cmd.exe",QStringList()<<"/c"<<"Script.bat",-1);
+#else
+    callback=ProgramCallback("sh",QStringList()<<Script,-1);
+#endif
+    return callback;
+}
+

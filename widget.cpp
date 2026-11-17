@@ -41,7 +41,7 @@ Widget::Widget(QWidget *parent)
     ui->MinecraftPathLineEdit->setText(MinecraftPath);
     ui->comboBox->addItems(GetSubFolderNames(MinecraftPath+"/versions"));
 
-    CreatePathIfNotExist(AppDataPath()+"/MCAtelier/JavaPath");
+    CreatePathIfNotExist(CachePath+"/JavaPath");
     ui->Condition->setText("正在检索所有Java的位置，请稍等......");
     QFuture<bool> future = QtConcurrent::run([this] { return SearchForJava(); });
     auto *w = new QFutureWatcher<bool>(this);
@@ -50,7 +50,6 @@ Widget::Widget(QWidget *parent)
         w->deleteLater();
     });
     w->setFuture(future);
-
 }
 
 Widget::~Widget()
@@ -61,18 +60,60 @@ Widget::~Widget()
 
 void Widget::on_pushButton_clicked()
 {
+    level++;
     QString MinecraftPath=ui->MinecraftPathLineEdit->text();
     if(MinecraftPath.endsWith("/") || MinecraftPath.endsWith("\\"))
     {
         MinecraftPath.chop(1);
     }
-    Create(MinecraftPath,ui->comboBox->currentText(),ui->lineEdit->text(),"offline","Script.bat");
 #ifdef QT_DEBUG
     return;
 #endif
-    QProcess proc;
-    proc.startDetached(QStringLiteral("cmd.exe"),{QStringLiteral("/c"),"start","Script.bat"});
-    OutputTextIntoFile("启动操作已完成\n------------------------------------------------------------\n\n","Log.txt");
+    ui->Condition->setText("正在生成Minecraft启动脚本......");
+    Create(MinecraftPath,ui->comboBox->currentText(),ui->lineEdit->text(),"offline",Script);
+    ui->Condition->setText("正在启动Minecraft......");
+    if(m_proc)
+    {
+        m_proc->deleteLater();
+        m_proc=nullptr;
+    }
+    m_proc=new QProcess(this);
+#ifdef Q_OS_WIN
+    m_proc->setProgram("cmd");
+    m_proc->setArguments(QStringList()<<"/c"<<Script);
+#else
+    m_proc->setProgram("sh");
+    m_proc->setArguments(QStringList()<<Script);
+#endif
+    m_proc->setProcessChannelMode(QProcess::SeparateChannels);
+    connect(m_proc,&QProcess::started,this,[this]()
+    {
+        ui->Condition->setText("启动成功");
+        Log()<<"启动成功";
+    });
+    connect(m_proc,&QProcess::readyReadStandardError,this,[this]()
+    {
+        QString Error=m_proc->readAllStandardError();
+        Log()<<"启动失败。失败信息："<<Error;
+    });
+    connect(m_proc,&QProcess::finished,this,[this](qint64 ExitCode,QProcess::ExitStatus ExitStatus)
+    {
+        if(ExitStatus==QProcess::NormalExit)
+        {
+            ui->Condition->setText("游戏正常退出");
+            Log()<<"游戏正常退出。exit code="+QString::number(ExitCode);
+        }
+        else
+        {
+            ui->Condition->setText("游戏非正常退出");
+            Log()<<"游戏非正常退出。exit code="+QString::number(ExitCode);
+        }
+        m_proc->deleteLater();
+        m_proc=nullptr;
+    });
+    m_proc->start();
+    Log()<<"启动操作已结束"<<"-------------------------------------------------------------------";
+    level--;
 }
 
 

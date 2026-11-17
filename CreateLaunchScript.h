@@ -69,4 +69,6 @@ extern bool Create(
     QString UserType,
     QString OutputFileName);
 
+extern QPair<QString,QString> StartScript();
+
 #endif // CREATELAUNCHSCRIPT_H
