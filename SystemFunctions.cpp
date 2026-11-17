@@ -28,19 +28,53 @@
  */
 QPair<qint64,qint64> GetMemory()
 {
+    level++;
+    Log()<<"正在获取设备物理内存信息";
     qint64 UsableMem=0;//单位：MB
     qint64 TotalMem=0;
 #ifdef Q_OS_WIN
     MEMORYSTATUSEX ms;
     ms.dwLength = sizeof(ms);               // 必须先初始化
     if (!GlobalMemoryStatusEx(&ms)) {
-        Log()<<"设备物理内存大小获取失败\n";
+        Log()<<"└获取失败";
         return {0,0};
     }
     const quint64 MB=1024*1024;
     UsableMem=ms.ullAvailPhys/MB;
     TotalMem=ms.ullTotalPhys/MB;
 #endif
+#ifdef Q_OS_LINUX
+    const qint64 MB=1024;
+    QFile file("/proc/meminfo");
+    if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        Log()<<"└获取失败";
+        return {0,0};
+    }
+    QTextStream in(&file);
+    QStringList Text=in.readAll().split("\n");
+    for(const QString &line:Text)
+    {
+        if(line.size()==0)
+        {
+            continue;
+        }
+        qint64 mem=QStringList(line.split(" ",Qt::SkipEmptyParts)).at(1).toLongLong();
+        if(line.startsWith("MemTotal:"))
+        {
+            qDebug()<<qPrintable("Tot:"+line);
+            TotalMem=mem/MB;
+        }
+        if(line.startsWith("MemAvailable:"))
+        {
+            qDebug()<<qPrintable("Ava:"+line);
+            UsableMem=mem/MB;
+        }
+    }
+    file.close();
+#endif
+    Log()<<"└获取成功";
+    level--;
     return {TotalMem,UsableMem};
 }
 

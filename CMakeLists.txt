@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.19)
-project(MCAtelier-SWJTU-core LANGUAGES CXX)
+project(MCAtelier-core LANGUAGES CXX)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 qt_standard_project_setup()
 
-qt_add_executable(MCAtelier-SWJTU-core
+qt_add_executable(MCAtelier-core
     WIN32 MACOSX_BUNDLE
     main.cpp
     widget.cpp
@@ -20,24 +20,27 @@ qt_add_executable(MCAtelier-SWJTU-core
 
     UI-FILES.LICENSE
     README.md
-
-
+    res/icon.rc
 )
 
-target_link_libraries(MCAtelier-SWJTU-core
+if(WIN32)
+    target_sources(MCAtelier-core PRIVATE res/icon.rc)
+endif()
+
+target_link_libraries(MCAtelier-core
     PRIVATE
         Qt::Core
         Qt::Widgets
 )
 
-install(TARGETS MCAtelier-SWJTU-core
+install(TARGETS MCAtelier-core
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 qt_generate_deploy_app_script(
-    TARGET MCAtelier-SWJTU-core
+    TARGET MCAtelier-core
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )

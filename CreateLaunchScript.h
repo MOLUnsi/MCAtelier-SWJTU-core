@@ -37,11 +37,24 @@
 #include "FileFunctions.h"
 #include "SystemFunctions.h"
 
+extern const QString LauncherName;
+extern const QString LauncherVersion;
+
+
 extern bool IfRulesObeyed(const QJsonObject &FileObject);
 
 extern void ResolvePlaceholders(
     QString& text,
     const QMap<QString, QString> &map);
+
+extern bool JsonDownload(
+    const QString &MinecraftPath,
+    const QString &GameName);
+
+extern bool AssestIndexDownload(
+    const QString &MinecraftPath,
+    const QString &IndexPath,
+    const QString &Url);
 
 extern QString SetMemory(
     bool Xm_,
@@ -68,5 +81,7 @@ extern bool Create(
     QString UserName,
     QString UserType,
     QString OutputFileName);
+
+extern QPair<QString,QString> StartScript();
 
 #endif // CREATELAUNCHSCRIPT_H

@@ -1,1 +1,5 @@
-build/
+/build
+/.qtcreator
+/release
+/ICON/ICON_MCAtelier_SWJTU
+/ICON/ICON_MCAtelier_SWJTU_cut-out

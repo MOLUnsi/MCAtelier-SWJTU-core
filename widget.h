@@ -58,5 +58,6 @@ private slots:
 
 private:
     Ui::Widget *ui;
+    QProcess *m_proc=nullptr;
 };
 #endif // WIDGET_H

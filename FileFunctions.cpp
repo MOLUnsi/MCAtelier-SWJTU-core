@@ -19,7 +19,12 @@
 #include "FileFunctions.h"
 
 const QString LogFileName="log.txt";
-const QString CachePath=AppDataPath()+"/MCAtelier";
+const QString CachePath=CacheDir();
+#ifdef Q_OS_WIN
+const QString Script="Script.bat";
+#else
+const QString Script="Script.sh";
+#endif
 qint64 level=-1;
 /**
  * @brief 如果字符串中带有空格，则在它的两端加上双引号；否则不做任何处理
@@ -43,7 +48,18 @@ Log::Log() {}
 Log & Log::operator<<(const QString &Content)
 {
     QString c=Content;
-    for(qint64 i=0;i<level;i++)
+    if(level>=1)
+    {
+        if(Content.startsWith("└")||Content.startsWith("├")||Content.startsWith("│"))
+        {
+            c="│"+c;
+        }
+        else
+        {
+            c="├"+c;
+        }
+    }
+    for(qint64 i=0;i<level-1;i++)
     {
         c="│"+c;
     }
@@ -84,13 +100,13 @@ bool FindFileAndSavePaths(
     const QString &AimFile,
     const QString &OutputFile)
 {
+    qint64 levelin=level;
     level++;
-    Log()<<"";
-    Log()<<"正在从根目录"+RootPath+"递归查找文件："+AimFile;
+    Log()<<"正在从根目录："+RootPath+" 递归查找文件："+AimFile;
     // 参数检查
     if (RootPath.isEmpty() || AimFile.isEmpty() || OutputFile.isEmpty())
     {
-        Log()<<"└参数为空";
+        Log()<<"└⚠参数为空";
         level--;
         return false;
     }
@@ -98,7 +114,7 @@ bool FindFileAndSavePaths(
     QDir rootDir(RootPath);
     if (!rootDir.exists())
     {
-        Log()<<"└根目录不存在";
+        Log()<<"⚠根目录不存在";
         level--;
         return false;
     }
@@ -117,10 +133,10 @@ bool FindFileAndSavePaths(
     {   
         it.next();
         resultPaths << it.fileInfo().absoluteFilePath(); // 绝对路径
-        Log()<<"├查找Java地址："+it.fileInfo().absoluteFilePath();
+        Log()<<"├查找文件地址："+it.fileInfo().absoluteFilePath();
     }
-    Log()<<"├查找到全部Java地址";
-    Log()<<"├开始存入全部Java地址";
+    Log()<<"├查找到全部"+AimFile+"文件地址";
+    Log()<<"├开始存入全部"+AimFile+"文件地址";
     for(QString path:resultPaths)
     {
         if(path.size()==0)
@@ -129,17 +145,17 @@ bool FindFileAndSavePaths(
         }
         if(!IsAllAscii(path))
         {
-            Log()<<"├需要处理Java地址："+path;
+            Log()<<"├需要处理"+AimFile+"文件地址："+path;
             path=QFileInfo(path).absolutePath();//去掉文件名的路径
-            AutoMKLink(path,AppDataPath()+"/MCAtelier/JavaPath");
+            AutoMKLink(path,CachePath+"/JavaPath");
             path+="/"+AimFile;
             Log()<<"├处理成为："+path;
         }
-        Log()<<"├存入Java地址："+path;
+        Log()<<"├存入"+AimFile+"文件地址："+path;
         OutputTextIntoFile(path+"\n",OutputFile);
     }
     Log()<<"└查找完毕";
-    level--;
+    level=levelin;
     return true;
 }
 
@@ -243,12 +259,11 @@ bool OutputTextIntoFile(
 bool ClearFile(const QString &AimFile)
 {
     level++;
-    Log()<<"";
     Log()<<"正在清理文件"+AimFile;
     QFile file(AimFile);
     if(!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
     {
-        Log()<<"└清理文件失败";
+        Log()<<"└⚠清理文件失败";
         level--;
         return false;
     }
@@ -266,7 +281,6 @@ bool ClearFile(const QString &AimFile)
 QStringList GetSubFolderNames(const QString &path)
 {
     level++;
-    Log()<<"";
     Log()<<"正在搜索"+path+"的子文件夹：";
     QDir dir(path);
     // 只保留目录，不保留 "." 和 ".."
@@ -279,16 +293,40 @@ QStringList GetSubFolderNames(const QString &path)
 }
 
 /**
- * @brief 获取%AppData%/Roaming文件夹位置
- * @return %AppData%/Roaming文件夹位置
+ * @brief 获取用户应用数据目录位置（Windows:%AppData%/  Linux:~/  MacOS:~/Application Support/）
+ * @return 用户应用数据目录位置
  */
-QString AppDataPath()
+QString UserDir()
 {
     level++;
+    QString rtDir;
+#ifdef Q_OS_WIN
     QDir dir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
     while(dir.dirName()!=QStringLiteral("Roaming")&&dir.cdUp());
+    rtDir=dir.absolutePath();
+#endif
+#ifdef Q_OS_LINUX
+    rtDir=QDir::homePath();
+#endif
+#ifdef Q_OS_MACOS
+    rtDir=QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+#endif
     level--;
-    return dir.absolutePath();
+    return rtDir;
+}
+
+/**
+ * @brief 获取缓存目录位置（Windows:%temp%/  Linux:~/.cache/  MacOS:~/Library/Caches/）
+ * @return 缓存目录位置
+ */
+QString CacheDir()
+{
+    level++;
+    QString rtDir;
+    QCoreApplication::setApplicationName("MCAtelier");
+    rtDir=QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    level--;
+    return rtDir;
 }
 
 /**
@@ -297,7 +335,11 @@ QString AppDataPath()
  */
 QString DefaultMinecraftPath()
 {
-    return AppDataPath()+"/.minecraft";
+#ifdef Q_OS_MACOS
+    return UserDir()+"minecraft";
+#else
+    return UserDir()+"/.minecraft";
+#endif
 }
 
 /**
@@ -314,12 +356,12 @@ bool ExtractZip(QString ZipPath,QString OutDir)
     Log()<<"正在将"+ZipPath+"解压到"+OutDir;
     QFile src(ZipPath);
     if (!src.exists()) {
-        Log()<<"└jar不存在";
+        Log()<<"└⚠jar不存在";
         level--;
         return false;
     }
     if (!QDir().mkpath(OutDir)) {
-        Log()<<"└无法创建目录";
+        Log()<<"└⚠无法创建目录";
         level--;
         return false;
     }
@@ -327,17 +369,22 @@ bool ExtractZip(QString ZipPath,QString OutDir)
     // tar.exe 是 Windows 自带的，通常在 C:\Windows\System32\tar.exe
     QProcess proc;
     QStringList args;
+#ifdef Q_OS_WIN
     args << "-xf" << ZipPath << "-C" << OutDir;   // -x 解压 -f 指定文件 -C 指定目录
-
     proc.start("tar", args);
+#endif
+#ifdef Q_OS_LINUX
+    args<<"-m"<<"zipfile"<<"-e"<<ZipPath<<OutDir;
+    proc.start("python3",args);
+#endif
     if (!proc.waitForFinished(30000)) {           // 最多等 30 秒
-        Log()<<"└解压超时";
+        Log()<<"└⚠解压超时";
         level--;
         return false;
     }
 
     if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        Log()<<"└解压失败:"+proc.readAllStandardError();
+        Log()<<"└⚠解压失败:"+proc.readAllStandardError();
         level--;
         return false;
     }
@@ -348,13 +395,14 @@ bool ExtractZip(QString ZipPath,QString OutDir)
 
 bool CreatePathIfNotExist(QString path)
 {
+    qint64 levelin=level;
     level++;
-    Log()<<"";
+
     Log()<<"正在创建路径："+path;
     if (path.isEmpty())
     {
-        Log()<<"└传入路径参数为空";
-        level--;
+        Log()<<"└⚠传入路径参数为空";
+        level=levelin;
         return false;
     }
 
@@ -363,8 +411,8 @@ bool CreatePathIfNotExist(QString path)
     // 已存在但不是目录：说明被文件占了，直接报错，不要强行创建
     if (info.exists() && !info.isDir())
     {
-        Log()<<"└路径已存在但不是目录";
-        level--;
+        Log()<<"└⚠路径已存在但不是目录";
+        level=levelin;
         return false;
     }
 
@@ -372,28 +420,28 @@ bool CreatePathIfNotExist(QString path)
     if (info.exists())
     {
         Log()<<"└目录已存在";
-        level--;
+        level=levelin;
         return true;
     }
 
     // mkpath 会逐级创建父目录，比 mkdir 好用
     if (!QDir().mkpath(path))
     {
-        Log()<<"└创建目录失败";
-        level--;
+        Log()<<"└⚠创建目录失败";
+        level=levelin;
         return false;
     }
     Log()<<"└创建目录成功";
-    level--;
+    level=levelin;
     return true;
 }
 
 bool DeletePathIfExist(QString path)
 {
     level++;
-    Log()<<"";
     Log()<<"正在删除目录："+path;
     bool rt=true;
+    level++;
     for(auto it:GetSubFolderNames(path))
     {
         QStringList args;
@@ -402,26 +450,29 @@ bool DeletePathIfExist(QString path)
         bool flag=ProgramCallback("cmd",args,-1).second.size()==0;
         rt=rt&&flag;
     }
+    level--;
     QStringList args;
     args<<"/c"<<"rmdir"<<path;
     Log()<<"正在删除父目录："+path;
     bool flag=(ProgramCallback("cmd",args,-1).second.size()==0);
+    Log()<<"└删除完毕";
     level--;
     return rt&&flag;
 }
 
 bool SearchForJava()
 {
+    qint64 levelin=level;
     level++;
-    Log()<<"";
     Log()<<"正在查找Java";
     if(!(QFileInfo("JavaPath.txt").exists()))
     {
+        level++;
 //        DeletePathIfExist(CachePath+"/JavaPath");
-        Log()<<"├已创建缓存路径："+CachePath+"/JavaPath";
+        Log()<<"正在创建缓存路径："+CachePath+"/JavaPath";
         CreatePathIfNotExist(CachePath+"/JavaPath");
         ClearFile("JavaPath.txt");
-        Log()<<"├正在检索所有Java的位置......";
+        Log()<<"正在检索所有Java的位置......";
         QStringList JavaPathAllowlist;
         JavaPathAllowlist
             <<"C:/Program Files/Java"
@@ -435,25 +486,34 @@ bool SearchForJava()
             <<QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
             <<QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
             <<QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-            <<QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+            <<QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+            <<"/usr/lib/jvm";
         bool flag=false;
         for(const QString &str:JavaPathAllowlist)
         {
+#ifdef Q_OS_WIN
             bool found=FindFileAndSavePaths(str,"java.exe","JavaPath.txt");
+#else
+            bool found=FindFileAndSavePaths(str,"java","JavaPath.txt");
+#endif
             flag=flag||found;
         }
         if(!flag)
         {
-            level--;
+            level=levelin;
             return false;
         }
         Log()<<"└已经检索所有Java的位置";
+        level--;
     }
     else
     {
-        Log()<<"└已有查找记录";
+        level++;
+        Log()<<"已有查找记录";
+        level--;
     }
-    level--;
+    Log()<<"└查找完毕";
+    level=levelin;
     return true;
 }
 /**
@@ -528,23 +588,25 @@ bool DownloadFileFromUrl(const QString &Url, const QString &Path)
         level--;
         return true;
     }
-    Log()<<"";
     Log()<<"正在从"+Url+"下载文件到"+Path;
-    QFileInfo fileInfo(Path);
-    QDir dir = fileInfo.absoluteDir();
+    CreatePathIfNotExist(QFileInfo(Path).absolutePath());
     QStringList arguments;
     arguments << "-L" << "--fail" << "-o" << Path << Url;
     QProcess proc;
+#ifdef Q_OS_WIN
     proc.start("curl.exe", arguments);
+#else
+    proc.start("curl", arguments);
+#endif
     if(!proc.waitForStarted(-1))
     {
-        Log()<<"└curl启动失败："+proc.errorString();
+        Log()<<"└⚠curl启动失败："+proc.errorString();
         level--;
         return false;
     }
     if(!proc.waitForFinished(-1))
     {
-        Log()<<"└curl未正常结束："+proc.errorString();
+        Log()<<"└⚠curl未正常结束："+proc.errorString();
         proc.kill();
         proc.waitForFinished();
         level--;
@@ -552,7 +614,7 @@ bool DownloadFileFromUrl(const QString &Url, const QString &Path)
     }
     if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
     {
-        Log()<<"└下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
+        Log()<<"└⚠下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
         level--;
         return false;
     }
@@ -568,7 +630,6 @@ bool DownloadFileFromUrl(QStringList UrlList,QStringList PathList)
         level--;
         return true;
     }
-    Log()<<"";
     Log()<<"正在下载文件：";
     for (QString &it:UrlList)
         it.remove('\n');
@@ -599,16 +660,20 @@ bool DownloadFileFromUrl(QStringList UrlList,QStringList PathList)
         args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES; // 不使用父进程的句柄
     });
 #endif
+#ifdef Q_OS_WIN
     proc.start("curl.exe", arguments);
+#else
+    proc.start("curl", arguments);
+#endif
     if(!proc.waitForStarted(-1))
     {
-        Log()<<"└curl启动失败："+proc.errorString();
+        Log()<<"└⚠curl启动失败："+proc.errorString();
         level--;
         return false;
     }
     if(!proc.waitForFinished(-1))
     {
-        Log()<<"└curl未正常结束："+proc.errorString();
+        Log()<<"└⚠curl未正常结束："+proc.errorString();
         proc.kill();
         proc.waitForFinished();
         level--;
@@ -616,7 +681,7 @@ bool DownloadFileFromUrl(QStringList UrlList,QStringList PathList)
     }
     if(proc.exitStatus()!=QProcess::NormalExit||proc.exitCode()!=0)
     {
-        Log()<<"└下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
+        Log()<<"└⚠下载失败，退出码="+QString::number(proc.exitCode())+"\tstderr="+proc.readAllStandardError();
         level--;
         return false;
     }
@@ -640,9 +705,9 @@ QPair<QString,QString> ProgramCallback(const QString &program,const QStringList 
     proc.waitForFinished(WaitFor);
     QString output=proc.readAllStandardOutput();
     QString error =proc.readAllStandardError();
+
     level--;
     return QPair<QString,QString>(output,error);
-
 }
 
 QJsonDocument ReadJson(const QString &file)
@@ -672,7 +737,6 @@ QJsonDocument ReadJson(const QString &file)
 bool mklink(QString from,QString to)
 {
     level++;
-    Log()<<"";
     Log()<<"正在创建从  "+from+"  到  "+to+"  的链接";
     if(QDir(to).exists())
     {
@@ -680,16 +744,21 @@ bool mklink(QString from,QString to)
         level--;
         return true;
     }
+    QStringList args;
+#ifdef Q_OS_WIN
     from.replace("/","\\");
     to.replace("/","\\");
-    QStringList args;
     args<<"/c"<<"mklink"<<"/J"<<to<<from;
-    QString fail=ProgramCallback("cmd",args,500).second;
+    QString fail=ProgramCallback("cmd",args,-1).second;
+#else
+    args<<"-s"<<from<<to;
+    QString fail=ProgramCallback("ln",args,-1).second;
+#endif
     fail.remove("\n");
     fail.remove("\r");
     if(fail.size()!=0)
     {
-        Log()<<"└创建失败。失败信息："+fail;
+        Log()<<"└⚠创建失败。失败信息："+fail;
         level--;
         return false;
     }
@@ -727,7 +796,6 @@ bool AutoMKLink(QString &path,QString LinkPath)
     }
     path=NewAbsPath;
     path+="/"+right;
-    Log()<<"";
     Log()<<"└现在地址："+path;
     level--;
     return true;

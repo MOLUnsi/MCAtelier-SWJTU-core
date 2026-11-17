@@ -28,6 +28,7 @@
 #include <QProcess>
 #include <QCryptographicHash>
 #include <QJsonDocument>
+#include <QCoreApplication>
 
 #ifdef Q_OS_WIN
 
@@ -39,6 +40,7 @@ extern QString qm(QString str);
 
 extern const QString LogFileName;
 extern const QString CachePath;
+extern const QString Script;
 extern qint64 level;
 
 class Log
@@ -80,7 +82,9 @@ extern bool ClearFile(
 extern QStringList GetSubFolderNames(
     const QString &path);
 
-extern QString AppDataPath();
+extern QString UserDir();
+
+extern QString CacheDir();
 
 extern QString DefaultMinecraftPath();
 
