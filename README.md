@@ -1,5 +1,5 @@
 # MCAtelier-SWJTU-core
-西南交通大学Minecraft启动器的启动核心组件
+某开源Minecraft启动器的启动核心组件
 
 初次制作于2026年10月30日
 
