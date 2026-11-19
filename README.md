@@ -1,4 +1,4 @@
-# MCAtelier-SWJTU-core
+# MCAtelier-core
 某开源Minecraft启动器的启动核心组件
 
 初次制作于2026年10月30日
